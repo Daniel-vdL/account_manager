@@ -1,87 +1,66 @@
-# Welcome to React Router!
+# Account Manager
 
-A modern, production-ready template for building full-stack React applications using React Router.
+A secure, enterprise-grade user management system built with React Router 7, designed with CIS Control 5 compliance in mind. This application provides comprehensive CRUD operations for managing users, departments, roles, and permissions with a strong focus on security and audit trails.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/remix-run/react-router-templates/tree/main/default)
+## 🔐 Security Features
 
-## Features
+- **Role-Based Access Control (RBAC)** - Granular permission system
+- **Session Management** - Auto-timeout and activity tracking
+- **Input Validation** - Comprehensive form validation and sanitization
+- **Audit Trail Ready** - Framework for logging all administrative actions
+- **Password Security** - Strong password requirements and hashing
+- **CSRF Protection** - Token-based protection framework
 
-- 🚀 Server-side rendering
-- ⚡️ Hot Module Replacement (HMR)
-- 📦 Asset bundling and optimization
-- 🔄 Data loading and mutations
-- 🔒 TypeScript by default
-- 🎉 TailwindCSS for styling
-- 📖 [React Router docs](https://reactrouter.com/)
+## 🚀 Features
 
-## Getting Started
+### User Management
+- Create, read, update, and delete users
+- Block/unblock user accounts
+- Assign roles and manage permissions
+- Track user employment details
+- Search and filter functionality
 
-### Installation
+### Department Management
+- Create and manage organizational departments
+- Assign users to departments
+- Department code validation
+- User count tracking
 
-Install the dependencies:
+### Authentication & Authorization
+- Secure login system with demo credentials
+- Session timeout management
+- Permission-based UI rendering
+- Activity tracking
+
+### Dashboard & Analytics
+- System statistics overview
+- Recent activity monitoring
+- Security alerts
+- User status tracking
+
+## 🛠️ Technology Stack
+
+- **Frontend**: React 19 with TypeScript
+- **Routing**: React Router 7
+- **Styling**: Tailwind CSS
+- **Build Tool**: Vite
+- **Package Manager**: Bun
+- **UI Components**: Custom component library
+
+## 📦 Installation
+
+Install dependencies using Bun:
 
 ```bash
-npm install
+bun install
 ```
 
-### Development
+## 🚀 Development
 
-Start the development server with HMR:
+Start the development server:
 
 ```bash
-npm run dev
+bun run dev
 ```
 
-Your application will be available at `http://localhost:5173`.
-
-## Building for Production
-
-Create a production build:
-
-```bash
-npm run build
-```
-
-## Deployment
-
-### Docker Deployment
-
-To build and run using Docker:
-
-```bash
-docker build -t my-app .
-
-# Run the container
-docker run -p 3000:3000 my-app
-```
-
-The containerized application can be deployed to any platform that supports Docker, including:
-
-- AWS ECS
-- Google Cloud Run
-- Azure Container Apps
-- Digital Ocean App Platform
-- Fly.io
-- Railway
-
-### DIY Deployment
-
-If you're familiar with deploying Node applications, the built-in app server is production-ready.
-
-Make sure to deploy the output of `npm run build`
-
-```
-├── package.json
-├── package-lock.json (or pnpm-lock.yaml, or bun.lockb)
-├── build/
-│   ├── client/    # Static assets
-│   └── server/    # Server-side code
-```
-
-## Styling
-
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever CSS framework you prefer.
-
----
-
-Built with ❤️ using React Router.
+Your application will be available at `http://localhost:5173`
