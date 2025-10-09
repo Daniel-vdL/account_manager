@@ -53,6 +53,10 @@ export function DataTable<T extends Record<string, any>>({
     }
   };
 
+  const getNestedValue = (obj: any, key: string): any => {
+    return key.split('.').reduce((value, k) => value?.[k], obj);
+  };
+
   const sortedData = useMemo(() => {
     if (!sortState.key || onSort) {
       return data;
@@ -73,10 +77,6 @@ export function DataTable<T extends Record<string, any>>({
       return sortState.direction === 'desc' ? -comparison : comparison;
     });
   }, [data, sortState, onSort]);
-
-  const getNestedValue = (obj: any, key: string): any => {
-    return key.split('.').reduce((value, k) => value?.[k], obj);
-  };
 
   const renderCell = (row: T, column: DataTableColumn<T>) => {
     if (column.render) {

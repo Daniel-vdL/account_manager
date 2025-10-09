@@ -1,24 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/layout/Layout';
 import { DataTable, Button, Modal, Input, Card, CardContent } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
 import { DEPARTMENT_TABLE_COLUMNS, SUCCESS_MESSAGES } from '../utils/constants';
 import { validateForm } from '../utils/helpers';
+import { fetchDepartments, createDepartment, updateDepartment, deleteDepartment } from '../lib/api';
+import { ProtectedRoute } from '../components/ProtectedRoute';
 import type { Department, CreateDepartmentForm, ValidationError } from '../types';
 
-const mockDepartments: Department[] = [
-  { id: 1, name: 'Engineering', code: 'ENG' },
-  { id: 2, name: 'Human Resources', code: 'HR' },
-  { id: 3, name: 'Finance', code: 'FIN' },
-  { id: 4, name: 'Marketing', code: 'MKT' },
-  { id: 5, name: 'Operations', code: 'OPS' },
-  { id: 6, name: 'Sales', code: 'SALES' }
-];
+
 
 export default function DepartmentsPage() {
   const { hasPermission } = useAuth();
-  const [departments, setDepartments] = useState<Department[]>(mockDepartments);
-  const [loading, setLoading] = useState(false);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -34,6 +29,24 @@ export default function DepartmentsPage() {
   const [formErrors, setFormErrors] = useState<ValidationError[]>([]);
   const [submitLoading, setSubmitLoading] = useState(false);
 
+  useEffect(() => {
+    const loadDepartments = async () => {
+      try {
+        setLoading(true);
+        const departmentsData = await fetchDepartments();
+        setDepartments(departmentsData);
+      } catch (error) {
+        console.error('Error loading departments:', error);
+        setDepartments([]);
+        alert('Failed to load departments from database. Please check your connection.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDepartments();
+  }, []);
+
   const filteredDepartments = departments.filter(dept =>
     dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     dept.code.toLowerCase().includes(searchTerm.toLowerCase())
@@ -43,9 +56,6 @@ export default function DepartmentsPage() {
     ...col,
     render: (value: any, row: Department) => {
       switch (col.key) {
-        case 'user_count':
-          const userCounts: Record<number, number> = { 1: 45, 2: 12, 3: 8, 4: 15, 5: 23, 6: 18 };
-          return userCounts[row.id] || 0;
         case 'actions':
           return (
             <div className="flex space-x-2">
@@ -102,26 +112,29 @@ export default function DepartmentsPage() {
       return;
     }
 
-    if (departments.some(d => d.code.toLowerCase() === createForm.code.toLowerCase())) {
-      setFormErrors([{ field: 'code', message: 'Department code already exists' }]);
-      return;
-    }
-
     try {
       setSubmitLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const newDepartment: Department = {
-        id: Math.max(...departments.map(d => d.id)) + 1,
+      const departmentData = {
         name: createForm.name,
         code: createForm.code.toUpperCase()
       };
-
-      setDepartments([...departments, newDepartment]);
+      
+      const response = await createDepartment(departmentData);
+      
+      const updatedDepartments = await fetchDepartments();
+      setDepartments(updatedDepartments);
+      
       setIsCreateModalOpen(false);
       alert(SUCCESS_MESSAGES.DEPARTMENT_CREATED);
     } catch (error) {
-      alert('Failed to create department');
+      console.error('Error creating department:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('already exists') || errorMessage.includes('duplicate')) {
+        setFormErrors([{ field: 'code', message: 'Department code already exists' }]);
+      } else {
+        alert(`Failed to create department: ${errorMessage}`);
+      }
     } finally {
       setSubmitLoading(false);
     }
@@ -138,14 +151,15 @@ export default function DepartmentsPage() {
       return;
     }
 
-    if (departments.some(d => d.id !== selectedDepartment.id && d.code.toLowerCase() === createForm.code.toLowerCase())) {
-      setFormErrors([{ field: 'code', message: 'Department code already exists' }]);
-      return;
-    }
-
     try {
       setSubmitLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const updateData = {
+        name: createForm.name,
+        code: createForm.code.toUpperCase()
+      };
+      
+      await updateDepartment(selectedDepartment.id, updateData);
       
       setDepartments(departments.map(d => 
         d.id === selectedDepartment.id 
@@ -156,7 +170,13 @@ export default function DepartmentsPage() {
       setIsEditModalOpen(false);
       alert(SUCCESS_MESSAGES.DEPARTMENT_UPDATED);
     } catch (error) {
-      alert('Failed to update department');
+      console.error('Error updating department:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('already exists') || errorMessage.includes('duplicate')) {
+        setFormErrors([{ field: 'code', message: 'Department code already exists' }]);
+      } else {
+        alert(`Failed to update department: ${errorMessage}`);
+      }
     } finally {
       setSubmitLoading(false);
     }
@@ -167,13 +187,20 @@ export default function DepartmentsPage() {
 
     try {
       setSubmitLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
+      await deleteDepartment(selectedDepartment.id);
+
       setDepartments(departments.filter(d => d.id !== selectedDepartment.id));
       setIsDeleteModalOpen(false);
       alert(SUCCESS_MESSAGES.DEPARTMENT_DELETED);
     } catch (error) {
-      alert('Failed to delete department');
+      console.error('Error deleting department:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      if (errorMessage.includes('Cannot delete department with assigned users')) {
+        alert('Cannot delete department with assigned users. Please reassign or remove users first.');
+      } else {
+        alert(`Failed to delete department: ${errorMessage}`);
+      }
     } finally {
       setSubmitLoading(false);
     }
@@ -184,7 +211,8 @@ export default function DepartmentsPage() {
   };
 
   return (
-    <Layout title="Department Management">
+    <ProtectedRoute>
+      <Layout title="Department Management">
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
@@ -335,5 +363,6 @@ export default function DepartmentsPage() {
         </Modal>
       </div>
     </Layout>
+    </ProtectedRoute>
   );
 }

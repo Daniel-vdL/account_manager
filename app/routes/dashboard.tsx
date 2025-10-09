@@ -1,56 +1,58 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/layout/Layout';
 import { Card, CardContent, CardHeader, Badge } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
+import { fetchDashboardStats, fetchRecentActivity, fetchSecurityAlerts } from '../lib/api';
+import { ProtectedRoute } from '../components/ProtectedRoute';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    blockedUsers: 0,
+    pendingUsers: 0,
+    totalDepartments: 0,
+    totalRoles: 0,
+    recentLogins: 0,
+    failedLogins: 0
+  });
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [securityAlerts, setSecurityAlerts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const stats = {
-    totalUsers: 1247,
-    activeUsers: 1156,
-    blockedUsers: 23,
-    pendingUsers: 68,
-    totalDepartments: 12,
-    totalRoles: 8,
-    recentLogins: 89,
-    failedLogins: 5
-  };
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      try {
+        setLoading(true);
+        const [dashboardStats, activityData, alertsData] = await Promise.all([
+          fetchDashboardStats(),
+          fetchRecentActivity(8),
+          fetchSecurityAlerts()
+        ]);
+        
+        setStats({
+          totalUsers: dashboardStats.totalUsers,
+          activeUsers: dashboardStats.activeUsers,
+          blockedUsers: dashboardStats.blockedUsers,
+          pendingUsers: dashboardStats.pendingUsers,
+          totalDepartments: dashboardStats.totalDepartments,
+          totalRoles: dashboardStats.totalRoles,
+          recentLogins: dashboardStats.recentLogins,
+          failedLogins: dashboardStats.failedLogins
+        });
+        
+        setRecentActivity(activityData);
+        setSecurityAlerts(alertsData);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const recentActivity = [
-    {
-      id: 1,
-      action: 'User Created',
-      user: 'John Doe',
-      target: 'Alice Johnson',
-      timestamp: '2024-10-07T10:30:00Z',
-      status: 'success'
-    },
-    {
-      id: 2,
-      action: 'Role Assigned',
-      user: 'Jane Smith',
-      target: 'Bob Wilson',
-      timestamp: '2024-10-07T09:45:00Z',
-      status: 'success'
-    },
-    {
-      id: 3,
-      action: 'Login Failed',
-      user: 'Unknown',
-      target: 'system@company.com',
-      timestamp: '2024-10-07T09:15:00Z',
-      status: 'failed'
-    },
-    {
-      id: 4,
-      action: 'User Blocked',
-      user: 'Admin',
-      target: 'Charlie Brown',
-      timestamp: '2024-10-07T08:30:00Z',
-      status: 'warning'
-    }
-  ];
+    loadDashboardData();
+  }, []);
 
   const StatCard = ({ title, value, description, variant = 'default' }: {
     title: string;
@@ -83,7 +85,8 @@ export default function DashboardPage() {
   };
 
   return (
-    <Layout title="Dashboard">
+    <ProtectedRoute>
+      <Layout title="Dashboard">
       <div className="space-y-6">
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
           <h2 className="text-lg font-semibold text-blue-900">
@@ -195,33 +198,52 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <div className="flex items-center p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                <svg className="w-5 h-5 text-yellow-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.182 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-yellow-800">
-                    5 failed login attempts in the last hour
-                  </p>
-                  <p className="text-xs text-yellow-700">Monitor for potential security threats</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center p-3 bg-green-50 border border-green-200 rounded-md">
-                <svg className="w-5 h-5 text-green-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <div>
-                  <p className="text-sm font-medium text-green-800">
-                    All systems operational
-                  </p>
-                  <p className="text-xs text-green-700">Security monitoring active</p>
-                </div>
-              </div>
+              {securityAlerts.map((alert) => {
+                const alertColors: Record<string, string> = {
+                  success: 'bg-green-50 border-green-200 text-green-800',
+                  warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+                  danger: 'bg-red-50 border-red-200 text-red-800'
+                };
+                
+                const iconColors: Record<string, string> = {
+                  success: 'text-green-600',
+                  warning: 'text-yellow-600',
+                  danger: 'text-red-600'
+                };
+                
+                const descriptionColors: Record<string, string> = {
+                  success: 'text-green-700',
+                  warning: 'text-yellow-700',
+                  danger: 'text-red-700'
+                };
+
+                const alertType = alert.type || 'warning';
+
+                return (
+                  <div key={alert.id} className={`flex items-center p-3 ${alertColors[alertType] || alertColors.warning} border rounded-md`}>
+                    {alertType === 'success' ? (
+                      <svg className={`w-5 h-5 ${iconColors[alertType] || iconColors.warning} mr-3`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    ) : (
+                      <svg className={`w-5 h-5 ${iconColors[alertType] || iconColors.warning} mr-3`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.182 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    )}
+                    <div>
+                      <p className={`text-sm font-medium`}>
+                        {alert.title}
+                      </p>
+                      <p className={`text-xs ${descriptionColors[alertType] || descriptionColors.warning}`}>{alert.description}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
       </div>
     </Layout>
+    </ProtectedRoute>
   );
 }

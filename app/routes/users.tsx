@@ -4,45 +4,9 @@ import { DataTable, Button, Modal, Input, Select, Badge, Card, CardContent } fro
 import { useAuth } from '../contexts/AuthContext';
 import { USER_TABLE_COLUMNS, USER_STATUS_OPTIONS, CONTRACT_TYPE_OPTIONS, SUCCESS_MESSAGES } from '../utils/constants';
 import { validateForm } from '../utils/helpers';
+import { fetchUsers, fetchDepartments, createUser, updateUser, deleteUser, deactivateUser, permanentDeleteUser } from '../lib/api';
+import { ProtectedRoute } from '../components/ProtectedRoute';
 import type { User, Department, Role, CreateUserForm, UpdateUserForm, ValidationError } from '../types';
-
-const mockUsers: User[] = [
-  {
-    id: 1,
-    employee_number: 'EMP001',
-    name: 'John Doe',
-    email: 'john.doe@company.com',
-    status: 'active' as any,
-    department_id: 1,
-    department: { id: 1, name: 'Engineering', code: 'ENG' },
-    created_at: '2024-01-15T10:30:00Z',
-    updated_at: '2024-01-15T10:30:00Z',
-    roles: [
-      { id: 1, user_id: 1, role_id: 2, role: { id: 2, name: 'Developer', description: 'Software Developer' }, valid_from: '2024-01-15', granted_by: 1 }
-    ]
-  },
-  {
-    id: 2,
-    employee_number: 'EMP002',
-    name: 'Jane Smith',
-    email: 'jane.smith@company.com',
-    status: 'active' as any,
-    department_id: 2,
-    department: { id: 2, name: 'Human Resources', code: 'HR' },
-    created_at: '2024-01-10T14:20:00Z',
-    updated_at: '2024-01-10T14:20:00Z',
-    roles: [
-      { id: 2, user_id: 2, role_id: 3, role: { id: 3, name: 'HR Manager', description: 'Human Resources Manager' }, valid_from: '2024-01-10', granted_by: 1 }
-    ]
-  }
-];
-
-const mockDepartments: Department[] = [
-  { id: 1, name: 'Engineering', code: 'ENG' },
-  { id: 2, name: 'Human Resources', code: 'HR' },
-  { id: 3, name: 'Finance', code: 'FIN' },
-  { id: 4, name: 'Marketing', code: 'MKT' }
-];
 
 const mockRoles: Role[] = [
   { id: 1, name: 'Administrator', description: 'System Administrator' },
@@ -53,16 +17,19 @@ const mockRoles: Role[] = [
 
 export default function UsersPage() {
   const { hasPermission } = useAuth();
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const [departments, setDepartments] = useState<Department[]>(mockDepartments);
+  const [users, setUsers] = useState<User[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [roles, setRoles] = useState<Role[]>(mockRoles);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
+  const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [blockReason, setBlockReason] = useState('');
   
   const [createForm, setCreateForm] = useState<CreateUserForm>({
     employee_number: '',
@@ -83,6 +50,51 @@ export default function UsersPage() {
   
   const [formErrors, setFormErrors] = useState<ValidationError[]>([]);
   const [submitLoading, setSubmitLoading] = useState(false);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [usersData, departmentsData] = await Promise.all([
+          fetchUsers(),
+          fetchDepartments()
+        ]);
+        
+        const formattedUsers: User[] = usersData.map((user: any) => ({
+          id: user.id,
+          employee_number: user.employeeNumber || user.employee_number || '',
+          name: user.name || '',
+          email: user.email || '',
+          status: user.status as any || 'pending',
+          department_id: user.departmentId || user.department_id || 0,
+          department: user.department ? {
+            id: user.department.id,
+            name: user.department.name,
+            code: user.department.code
+          } : undefined,
+          created_at: typeof user.createdAt === 'string' ? user.createdAt : 
+                     user.createdAt?.toISOString ? user.createdAt.toISOString() : 
+                     user.created_at || new Date().toISOString(),
+          updated_at: typeof user.updatedAt === 'string' ? user.updatedAt : 
+                     user.updatedAt?.toISOString ? user.updatedAt.toISOString() : 
+                     user.updated_at || new Date().toISOString(),
+          roles: user.roles || []
+        }));
+        
+        setUsers(formattedUsers);
+        setDepartments(departmentsData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setUsers([]);
+        setDepartments([]);
+        alert('Failed to load data from database. Please check your connection.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, []);
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -138,11 +150,20 @@ export default function UsersPage() {
                   Unblock
                 </Button>
               )}
+              {hasPermission('user:delete') && row.status !== 'inactive' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleDeactivate(row)}
+                >
+                  Deactivate
+                </Button>
+              )}
               {hasPermission('user:delete') && (
                 <Button
                   size="sm"
                   variant="danger"
-                  onClick={() => handleDelete(row)}
+                  onClick={() => handlePermanentDelete(row)}
                 >
                   Delete
                 </Button>
@@ -186,27 +207,53 @@ export default function UsersPage() {
     setIsDeleteModalOpen(true);
   };
 
-  const handleBlock = async (user: User) => {
+  const handleDeactivate = (user: User) => {
+    setSelectedUser(user);
+    setIsDeactivateModalOpen(true);
+  };
+
+  const handlePermanentDelete = (user: User) => {
+    setSelectedUser(user);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleBlock = (user: User) => {
+    setSelectedUser(user);
+    setBlockReason('');
+    setIsBlockModalOpen(true);
+  };
+
+  const handleBlockSubmit = async () => {
+    if (!selectedUser || !blockReason.trim()) {
+      alert('Please provide a reason for blocking this user');
+      return;
+    }
+
     try {
-      setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      setSubmitLoading(true);
+      
+      await updateUser(selectedUser.id, { status: 'blocked', reason: blockReason });
       
       setUsers(users.map(u => 
-        u.id === user.id ? { ...u, status: 'blocked' as any } : u
+        u.id === selectedUser.id ? { ...u, status: 'blocked' as any } : u
       ));
       
+      setIsBlockModalOpen(false);
+      setBlockReason('');
       alert(SUCCESS_MESSAGES.USER_BLOCKED);
     } catch (error) {
+      console.error('Error blocking user:', error);
       alert('Failed to block user');
     } finally {
-      setLoading(false);
+      setSubmitLoading(false);
     }
   };
 
   const handleUnblock = async (user: User) => {
     try {
       setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      await updateUser(user.id, { status: 'active' });
       
       setUsers(users.map(u => 
         u.id === user.id ? { ...u, status: 'active' as any } : u
@@ -214,6 +261,7 @@ export default function UsersPage() {
       
       alert(SUCCESS_MESSAGES.USER_UNBLOCKED);
     } catch (error) {
+      console.error('Error unblocking user:', error);
       alert('Failed to unblock user');
     } finally {
       setLoading(false);
@@ -231,33 +279,48 @@ export default function UsersPage() {
 
     try {
       setSubmitLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const newUser: User = {
-        id: users.length + 1,
-        employee_number: createForm.employee_number,
+
+      
+      const userData = {
+        employeeNumber: createForm.employee_number,
         name: createForm.name,
         email: createForm.email,
-        status: 'active' as any,
-        department_id: createForm.department_id,
-        department: departments.find(d => d.id === createForm.department_id),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        roles: createForm.role_ids.map(roleId => ({
-          id: Date.now() + roleId,
-          user_id: users.length + 1,
-          role_id: roleId,
-          role: roles.find(r => r.id === roleId),
-          valid_from: createForm.start_date,
-          granted_by: 1
-        }))
+        password: 'temp123',
+        departmentId: createForm.department_id || undefined,
+        status: 'active'
       };
-
-      setUsers([...users, newUser]);
+      
+      const response = await createUser(userData);
+      
+      const updatedUsers = await fetchUsers();
+      const formattedUsers: User[] = updatedUsers.map((user: any) => ({
+        id: user.id,
+        employee_number: user.employeeNumber || user.employee_number || '',
+        name: user.name || '',
+        email: user.email || '',
+        status: user.status as any || 'pending',
+        department_id: user.departmentId || user.department_id || 0,
+        department: user.department ? {
+          id: user.department.id,
+          name: user.department.name,
+          code: user.department.code
+        } : undefined,
+        created_at: typeof user.createdAt === 'string' ? user.createdAt : 
+                   user.createdAt?.toISOString ? user.createdAt.toISOString() : 
+                   user.created_at || new Date().toISOString(),
+        updated_at: typeof user.updatedAt === 'string' ? user.updatedAt : 
+                   user.updatedAt?.toISOString ? user.updatedAt.toISOString() : 
+                   user.updated_at || new Date().toISOString(),
+        roles: []
+      }));
+      
+      setUsers(formattedUsers);
       setIsCreateModalOpen(false);
       alert(SUCCESS_MESSAGES.USER_CREATED);
     } catch (error) {
-      alert('Failed to create user');
+      console.error('Error creating user:', error);
+      alert(`Failed to create user: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSubmitLoading(false);
     }
@@ -270,7 +333,17 @@ export default function UsersPage() {
 
     try {
       setSubmitLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+
+      
+      const updateData = {
+        name: updateForm.name,
+        email: updateForm.email,
+        departmentId: updateForm.department_id || undefined,
+        status: updateForm.status
+      };
+      
+      await updateUser(selectedUser.id, updateData);
       
       setUsers(users.map(u => 
         u.id === selectedUser.id 
@@ -300,13 +373,39 @@ export default function UsersPage() {
 
     try {
       setSubmitLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
+      await permanentDeleteUser(selectedUser.id);
+      
+      // Remove the user from the list completely
       setUsers(users.filter(u => u.id !== selectedUser.id));
+      
       setIsDeleteModalOpen(false);
-      alert(SUCCESS_MESSAGES.USER_DELETED);
+      alert('User permanently deleted successfully');
     } catch (error) {
-      alert('Failed to delete user');
+      console.error('Error permanently deleting user:', error);
+      alert(`Failed to permanently delete user: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setSubmitLoading(false);
+    }
+  };
+
+  const handleDeactivateSubmit = async () => {
+    if (!selectedUser) return;
+
+    try {
+      setSubmitLoading(true);
+      
+      await deactivateUser(selectedUser.id);
+      
+      setUsers(users.map(u => 
+        u.id === selectedUser.id ? { ...u, status: 'inactive' as any } : u
+      ));
+      
+      setIsDeactivateModalOpen(false);
+      alert('User deactivated successfully');
+    } catch (error) {
+      console.error('Error deactivating user:', error);
+      alert(`Failed to deactivate user: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSubmitLoading(false);
     }
@@ -317,7 +416,8 @@ export default function UsersPage() {
   };
 
   return (
-    <Layout title="User Management">
+    <ProtectedRoute>
+      <Layout title="User Management">
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
@@ -492,7 +592,7 @@ export default function UsersPage() {
         <Modal
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}
-          title="Delete User"
+          title="Permanently Delete User"
           footer={
             <>
               <Button 
@@ -507,17 +607,99 @@ export default function UsersPage() {
                 onClick={handleDeleteSubmit}
                 loading={submitLoading}
               >
-                Delete User
+                Permanently Delete User
               </Button>
             </>
           }
         >
           <p className="text-gray-600">
-            Are you sure you want to delete <strong>{selectedUser?.name}</strong>? 
-            This action cannot be undone and will remove all associated data.
+            Are you sure you want to <strong>permanently delete</strong> <strong>{selectedUser?.name}</strong>? 
+            This action cannot be undone and will completely remove the user and all associated data from the database.
           </p>
+        </Modal>
+
+        <Modal
+          isOpen={isDeactivateModalOpen}
+          onClose={() => setIsDeactivateModalOpen(false)}
+          title="Deactivate User"
+          footer={
+            <>
+              <Button 
+                variant="outline" 
+                onClick={() => setIsDeactivateModalOpen(false)}
+                disabled={submitLoading}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={handleDeactivateSubmit}
+                loading={submitLoading}
+              >
+                Deactivate User
+              </Button>
+            </>
+          }
+        >
+          <p className="text-gray-600">
+            Are you sure you want to deactivate <strong>{selectedUser?.name}</strong>? 
+            This will set their status to inactive but keep their data in the system.
+          </p>
+        </Modal>
+
+        <Modal
+          isOpen={isBlockModalOpen}
+          onClose={() => {
+            setIsBlockModalOpen(false);
+            setBlockReason('');
+          }}
+          title="Block User"
+          footer={
+            <>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsBlockModalOpen(false);
+                  setBlockReason('');
+                }}
+                disabled={submitLoading}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="danger"
+                onClick={handleBlockSubmit}
+                loading={submitLoading}
+                disabled={!blockReason.trim()}
+              >
+                Block User
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <p className="text-gray-600">
+              Are you sure you want to block <strong>{selectedUser?.name}</strong>? 
+              This will prevent them from accessing the system.
+            </p>
+            <div>
+              <label htmlFor="blockReason" className="block text-sm font-medium text-gray-700 mb-1">
+                Reason for blocking <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                id="blockReason"
+                value={blockReason}
+                onChange={(e) => setBlockReason(e.target.value)}
+                placeholder="Please provide a reason for blocking this user..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                rows={3}
+                required
+              />
+            </div>
+          </div>
         </Modal>
       </div>
     </Layout>
+    </ProtectedRoute>
   );
 }

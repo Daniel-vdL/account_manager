@@ -143,7 +143,6 @@ export const USER_TABLE_COLUMNS = [
 export const DEPARTMENT_TABLE_COLUMNS = [
   { key: 'code', label: 'Code', sortable: true, width: '100px' },
   { key: 'name', label: 'Name', sortable: true },
-  { key: 'user_count', label: 'Users', sortable: true, width: '80px' },
   { key: 'actions', label: 'Actions', sortable: false, width: '120px' }
 ];
 

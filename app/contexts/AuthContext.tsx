@@ -2,6 +2,21 @@ import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { AuthUser, AuthContextType, LoginCredentials, Permission, Role } from '../types';
 import { session, handleApiError } from '../utils/helpers';
+import { fetchUserRoles } from '../lib/api';
+
+async function fetchAndTransformUserRoles(userId: number): Promise<Role[]> {
+  try {
+    const userRolesData = await fetchUserRoles(userId);
+    return userRolesData.map((userRole: any) => ({
+      id: userRole.role.id,
+      name: userRole.role.name,
+      description: userRole.role.description || ''
+    }));
+  } catch (error) {
+    console.error('Error fetching user roles:', error);
+    return [];
+  }
+}
 
 interface AuthState {
   user: AuthUser | null;
@@ -148,47 +163,47 @@ export function AuthProvider({ children }: AuthProviderProps) {
     dispatch({ type: 'LOGIN_START' });
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch('/api/data?endpoint=auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
 
-      if (credentials.email === 'admin@company.com' && credentials.password === 'admin123') {
-        const mockUser: AuthUser = {
-          id: 1,
-          name: 'System Administrator',
-          email: 'admin@company.com',
-          employee_number: 'ADM001',
-          department: {
-            id: 1,
-            name: 'IT Department',
-            code: 'IT'
-          },
-          roles: [
-            {
-              id: 1,
-              name: 'Administrator',
-              description: 'Full system access'
-            }
-          ],
-          permissions: [
-            { id: 1, name: 'admin:all', action: 'admin:all' },
-            { id: 2, name: 'user:create', action: 'user:create' },
-            { id: 3, name: 'user:read', action: 'user:read' },
-            { id: 4, name: 'user:update', action: 'user:update' },
-            { id: 5, name: 'user:delete', action: 'user:delete' },
-            { id: 6, name: 'department:create', action: 'department:create' },
-            { id: 7, name: 'department:read', action: 'department:read' },
-            { id: 8, name: 'role:read', action: 'role:read' },
-            { id: 9, name: 'audit:read', action: 'audit:read' }
-          ]
-        };
+      const data = await response.json();
 
-        localStorage.setItem('authToken', 'mock-jwt-token');
-        localStorage.setItem('authUser', JSON.stringify(mockUser));
-        session.extendSession();
-
-        dispatch({ type: 'LOGIN_SUCCESS', payload: mockUser });
-      } else {
-        throw new Error('Invalid email or password');
+      if (!response.ok) {
+        throw new Error(data.error || 'Authentication failed');
       }
+
+      const authUser: AuthUser = {
+        id: data.user.id,
+        name: data.user.name,
+        email: data.user.email,
+        employee_number: data.user.employeeNumber,
+        department: data.user.department || { id: 0, name: 'Unassigned', code: 'NONE' },
+        roles: await fetchAndTransformUserRoles(data.user.id),
+        permissions: [
+          { id: 1, name: 'user:read', action: 'user:read' },
+          { id: 2, name: 'department:read', action: 'department:read' },
+          ...(data.user.email === 'admin@company.com' ? [
+            { id: 3, name: 'admin:all', action: 'admin:all' },
+            { id: 4, name: 'user:create', action: 'user:create' },
+            { id: 5, name: 'user:update', action: 'user:update' },
+            { id: 6, name: 'user:delete', action: 'user:delete' },
+            { id: 7, name: 'department:create', action: 'department:create' },
+            { id: 8, name: 'department:update', action: 'department:update' },
+            { id: 9, name: 'department:delete', action: 'department:delete' },
+          ] : [])
+        ]
+      };
+
+      localStorage.setItem('authToken', `bearer-${data.user.id}-${Date.now()}`);
+      localStorage.setItem('authUser', JSON.stringify(authUser));
+      session.extendSession();
+
+      dispatch({ type: 'LOGIN_SUCCESS', payload: authUser });
     } catch (error) {
       const errorMessage = handleApiError(error);
       dispatch({ type: 'LOGIN_FAILURE', payload: errorMessage });
