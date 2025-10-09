@@ -4,11 +4,9 @@ import { DataTable, Button, Modal, Input, Card, CardContent } from '../component
 import { useAuth } from '../contexts/AuthContext';
 import { DEPARTMENT_TABLE_COLUMNS, SUCCESS_MESSAGES } from '../utils/constants';
 import { validateForm } from '../utils/helpers';
-import { fetchDepartments, createDepartment, updateDepartment, deleteDepartment } from '../lib/api';
+import { fetchDepartments, fetchDepartmentUserCounts, createDepartment, updateDepartment, deleteDepartment } from '../lib/api';
 import { ProtectedRoute } from '../components/ProtectedRoute';
-import type { Department, CreateDepartmentForm, ValidationError } from '../types';
-
-
+import type { Department, DepartmentUserCount, CreateDepartmentForm, ValidationError } from '../types';
 
 export default function DepartmentsPage() {
   const { hasPermission } = useAuth();
@@ -29,12 +27,28 @@ export default function DepartmentsPage() {
   const [formErrors, setFormErrors] = useState<ValidationError[]>([]);
   const [submitLoading, setSubmitLoading] = useState(false);
 
+  const loadDepartmentsWithCounts = async () => {
+    const [departmentsData, userCounts] = await Promise.all([
+      fetchDepartments(),
+      fetchDepartmentUserCounts()
+    ]);
+    
+    const departmentsWithCounts = departmentsData.map((dept: Department) => {
+      const userCount = userCounts.find((count: DepartmentUserCount) => count.departmentId === dept.id);
+      return {
+        ...dept,
+        user_count: userCount ? userCount.userCount : 0
+      };
+    });
+    
+    setDepartments(departmentsWithCounts);
+  };
+
   useEffect(() => {
     const loadDepartments = async () => {
       try {
         setLoading(true);
-        const departmentsData = await fetchDepartments();
-        setDepartments(departmentsData);
+        await loadDepartmentsWithCounts();
       } catch (error) {
         console.error('Error loading departments:', error);
         setDepartments([]);
@@ -56,6 +70,8 @@ export default function DepartmentsPage() {
     ...col,
     render: (value: any, row: Department) => {
       switch (col.key) {
+        case 'user_count':
+          return row.user_count ?? 0;
         case 'actions':
           return (
             <div className="flex space-x-2">
@@ -122,8 +138,7 @@ export default function DepartmentsPage() {
       
       const response = await createDepartment(departmentData);
       
-      const updatedDepartments = await fetchDepartments();
-      setDepartments(updatedDepartments);
+      await loadDepartmentsWithCounts();
       
       setIsCreateModalOpen(false);
       alert(SUCCESS_MESSAGES.DEPARTMENT_CREATED);
@@ -161,11 +176,7 @@ export default function DepartmentsPage() {
       
       await updateDepartment(selectedDepartment.id, updateData);
       
-      setDepartments(departments.map(d => 
-        d.id === selectedDepartment.id 
-          ? { ...d, name: createForm.name, code: createForm.code.toUpperCase() }
-          : d
-      ));
+      await loadDepartmentsWithCounts();
       
       setIsEditModalOpen(false);
       alert(SUCCESS_MESSAGES.DEPARTMENT_UPDATED);
@@ -190,7 +201,7 @@ export default function DepartmentsPage() {
       
       await deleteDepartment(selectedDepartment.id);
 
-      setDepartments(departments.filter(d => d.id !== selectedDepartment.id));
+      await loadDepartmentsWithCounts();
       setIsDeleteModalOpen(false);
       alert(SUCCESS_MESSAGES.DEPARTMENT_DELETED);
     } catch (error) {

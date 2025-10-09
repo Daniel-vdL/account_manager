@@ -2,6 +2,13 @@ export interface Department {
   id: number;
   name: string;
   code: string;
+  user_count?: number;
+}
+
+export interface DepartmentUserCount {
+  departmentId: number;
+  departmentName: string;
+  userCount: number;
 }
 
 export interface User {
