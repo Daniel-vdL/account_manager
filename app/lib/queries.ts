@@ -1,5 +1,5 @@
-import { eq, desc, count, and, isNull, gte, gt } from 'drizzle-orm';
-import { db, users, departments, userRoles, roles, loginEvents, auditLog } from '../db';
+import { eq, desc, count, and, isNull, gte, gt, lte } from 'drizzle-orm';
+import { db, users, departments, userRoles, roles, loginEvents, auditLog, employment } from '../db';
 
 export async function getAllUsers() {
   const usersData = await db
@@ -17,9 +17,16 @@ export async function getAllUsers() {
         name: departments.name,
         code: departments.code,
       },
+      employment: {
+        id: employment.id,
+        startDate: employment.startDate,
+        endDate: employment.endDate,
+        contractType: employment.contractType,
+      },
     })
     .from(users)
     .leftJoin(departments, eq(users.departmentId, departments.id))
+    .leftJoin(employment, eq(users.id, employment.userId))
     .orderBy(desc(users.createdAt));
 
   const usersWithRoles = await Promise.all(
@@ -158,7 +165,22 @@ export async function createUser(userData: {
   passwordHash: string;
   departmentId?: number;
   status?: string;
+  startDate?: string;
+  endDate?: string;
+  contractType?: string;
 }, auditData?: { userId?: number; ipAddress?: string; userAgent?: string }) {
+  const today = new Date();
+  const startDate = userData.startDate ? new Date(userData.startDate) : today;
+  
+  let userStatus = userData.status;
+  if (!userStatus) {
+    if (startDate > today) {
+      userStatus = 'pending';
+    } else {
+      userStatus = 'active';
+    }
+  }
+
   const result = await db
     .insert(users)
     .values({
@@ -167,11 +189,22 @@ export async function createUser(userData: {
       email: userData.email,
       passwordHash: userData.passwordHash,
       departmentId: userData.departmentId,
-      status: userData.status || 'pending',
+      status: userStatus,
     })
     .returning();
 
   const newUser = result[0];
+
+  if (userData.startDate) {
+    await db
+      .insert(employment)
+      .values({
+        userId: newUser.id,
+        startDate: userData.startDate,
+        endDate: userData.endDate || null,
+        contractType: userData.contractType || 'full_time',
+      });
+  }
 
   if (auditData) {
     await createAuditLog({
@@ -186,14 +219,123 @@ export async function createUser(userData: {
         email: newUser.email,
         status: newUser.status,
         departmentId: newUser.departmentId,
+        startDate: userData.startDate,
+        endDate: userData.endDate,
+        contractType: userData.contractType,
       },
-      details: `User created: ${newUser.name} (${newUser.email})`,
+      details: `User created: ${newUser.name} (${newUser.email}) - Start: ${userData.startDate || 'immediate'}, Contract: ${userData.contractType || 'full_time'}`,
       ipAddress: auditData.ipAddress,
       userAgent: auditData.userAgent,
     });
   }
 
   return newUser;
+}
+
+export async function checkAndDeactivateExpiredContracts() {
+  const today = new Date().toISOString().split('T')[0];
+  
+  const expiredUsers = await db
+    .select({
+      userId: users.id,
+      userName: users.name,
+      userEmail: users.email,
+      endDate: employment.endDate,
+    })
+    .from(employment)
+    .innerJoin(users, eq(employment.userId, users.id))
+    .where(
+      and(
+        lte(employment.endDate, today),
+        eq(users.status, 'active')
+      )
+    );
+
+  for (const user of expiredUsers) {
+    await db
+      .update(users)
+      .set({
+        status: 'inactive',
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, user.userId));
+
+    await createAuditLog({
+      userId: 1,
+      action: 'user_auto_deactivated',
+      targetUserId: user.userId,
+      targetTable: 'users',
+      targetId: user.userId,
+      oldValues: { status: 'active' },
+      newValues: { status: 'inactive' },
+      details: `User automatically deactivated due to contract expiration on ${user.endDate} - CIS Control 5`,
+      ipAddress: undefined,
+      userAgent: 'System Automated Process',
+    });
+  }
+
+  return {
+    deactivatedCount: expiredUsers.length,
+    deactivatedUsers: expiredUsers.map(u => ({ 
+      id: u.userId, 
+      name: u.userName, 
+      email: u.userEmail, 
+      endDate: u.endDate 
+    })),
+  };
+}
+
+export async function activatePendingUsers() {
+  const today = new Date().toISOString().split('T')[0];
+  
+  const usersToActivate = await db
+    .select({
+      userId: users.id,
+      userName: users.name,
+      userEmail: users.email,
+      startDate: employment.startDate,
+    })
+    .from(employment)
+    .innerJoin(users, eq(employment.userId, users.id))
+    .where(
+      and(
+        lte(employment.startDate, today),
+        eq(users.status, 'pending')
+      )
+    );
+
+  for (const user of usersToActivate) {
+    await db
+      .update(users)
+      .set({
+        status: 'active',
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, user.userId));
+
+    await createAuditLog({
+      userId: 1,
+      action: 'user_auto_activated',
+      targetUserId: user.userId,
+      targetTable: 'users',
+      targetId: user.userId,
+      oldValues: { status: 'pending' },
+      newValues: { status: 'active' },
+      details: `User automatically activated on start date ${user.startDate}`,
+      ipAddress: undefined,
+      userAgent: 'System Automated Process',
+    });
+  }
+
+  return {
+    activatedCount: usersToActivate.length,
+    activatedUsers: usersToActivate.map(u => ({ 
+      id: u.userId, 
+      name: u.userName, 
+      email: u.userEmail, 
+      startDate: u.startDate 
+    })),
+  };
 }
 
 export async function updateUser(

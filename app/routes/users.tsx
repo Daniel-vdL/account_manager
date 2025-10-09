@@ -4,7 +4,7 @@ import { DataTable, Button, Modal, Input, Select, Badge, Card, CardContent } fro
 import { useAuth } from '../contexts/AuthContext';
 import { USER_TABLE_COLUMNS, USER_STATUS_OPTIONS, CONTRACT_TYPE_OPTIONS, SUCCESS_MESSAGES } from '../utils/constants';
 import { validateForm } from '../utils/helpers';
-import { fetchUsers, fetchDepartments, createUser, updateUser, deleteUser, deactivateUser, permanentDeleteUser } from '../lib/api';
+import { fetchUsers, fetchDepartments, createUser, updateUser, deleteUser, deactivateUser, permanentDeleteUser, reactivateUser } from '../lib/api';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import type { User, Department, Role, CreateUserForm, UpdateUserForm, ValidationError } from '../types';
 
@@ -38,6 +38,7 @@ export default function UsersPage() {
     department_id: 0,
     contract_type: 'full_time' as any,
     start_date: '',
+    end_date: '',
     role_ids: []
   });
   
@@ -78,7 +79,13 @@ export default function UsersPage() {
           updated_at: typeof user.updatedAt === 'string' ? user.updatedAt : 
                      user.updatedAt?.toISOString ? user.updatedAt.toISOString() : 
                      user.updated_at || new Date().toISOString(),
-          roles: user.roles || []
+          roles: user.roles || [],
+          employment: user.employment ? {
+            id: user.employment.id,
+            start_date: user.employment.startDate,
+            end_date: user.employment.endDate,
+            contract_type: user.employment.contractType
+          } : undefined
         }));
         
         setUsers(formattedUsers);
@@ -120,6 +127,38 @@ export default function UsersPage() {
           );
         case 'created_at':
           return new Date(value).toLocaleDateString();
+        case 'employment_dates':
+          const employment = row.employment;
+          if (!employment) return 'No employment data';
+          
+          if (row.status === 'pending' || (employment.start_date && new Date(employment.start_date) > new Date())) {
+            return (
+              <div className="text-sm">
+                <div className="text-blue-600 font-medium">Starts:</div>
+                <div>{employment.start_date ? new Date(employment.start_date).toLocaleDateString() : 'Not set'}</div>
+              </div>
+            );
+          } else if (employment.end_date) {
+            const endDate = new Date(employment.end_date);
+            const today = new Date();
+            const isExpired = endDate < today;
+            
+            return (
+              <div className="text-sm">
+                <div className={`font-medium ${isExpired ? 'text-red-600' : 'text-orange-600'}`}>
+                  {isExpired ? 'Expired:' : 'Ends:'}
+                </div>
+                <div className={isExpired ? 'text-red-600' : ''}>{endDate.toLocaleDateString()}</div>
+              </div>
+            );
+          } else {
+            return (
+              <div className="text-sm text-gray-500">
+                <div>Permanent</div>
+                <div>No end date</div>
+              </div>
+            );
+          }
         case 'actions':
           return (
             <div className="flex space-x-2">
@@ -159,6 +198,15 @@ export default function UsersPage() {
                   Deactivate
                 </Button>
               )}
+              {hasPermission('user:update') && row.status === 'inactive' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleReactivate(row)}
+                >
+                  Reactivate
+                </Button>
+              )}
               {hasPermission('user:delete') && (
                 <Button
                   size="sm"
@@ -184,6 +232,7 @@ export default function UsersPage() {
       department_id: 0,
       contract_type: 'full_time' as any,
       start_date: '',
+      end_date: '',
       role_ids: []
     });
     setFormErrors([]);
@@ -215,6 +264,25 @@ export default function UsersPage() {
   const handlePermanentDelete = (user: User) => {
     setSelectedUser(user);
     setIsDeleteModalOpen(true);
+  };
+
+  const handleReactivate = async (user: User) => {
+    try {
+      setLoading(true);
+      
+      await reactivateUser(user.id);
+      
+      setUsers(users.map(u => 
+        u.id === user.id ? { ...u, status: 'active' as any } : u
+      ));
+      
+      alert('User reactivated successfully');
+    } catch (error) {
+      console.error('Error reactivating user:', error);
+      alert('Failed to reactivate user');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBlock = (user: User) => {
@@ -288,7 +356,9 @@ export default function UsersPage() {
         email: createForm.email,
         password: 'temp123',
         departmentId: createForm.department_id || undefined,
-        status: 'active'
+        startDate: createForm.start_date,
+        endDate: createForm.end_date || undefined,
+        contractType: createForm.contract_type
       };
       
       const response = await createUser(userData);
@@ -376,7 +446,6 @@ export default function UsersPage() {
       
       await permanentDeleteUser(selectedUser.id);
       
-      // Remove the user from the list completely
       setUsers(users.filter(u => u.id !== selectedUser.id));
       
       setIsDeleteModalOpen(false);
@@ -521,14 +590,24 @@ export default function UsersPage() {
               />
             </div>
             
-            <Input
-              label="Start Date"
-              type="date"
-              value={createForm.start_date}
-              onChange={(e) => setCreateForm({ ...createForm, start_date: e.target.value })}
-              error={getFieldError('start_date')}
-              required
-            />
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Start Date"
+                type="date"
+                value={createForm.start_date}
+                onChange={(e) => setCreateForm({ ...createForm, start_date: e.target.value })}
+                error={getFieldError('start_date')}
+                required
+              />
+              <Input
+                label="End Date (Optional)"
+                type="date"
+                value={createForm.end_date}
+                onChange={(e) => setCreateForm({ ...createForm, end_date: e.target.value })}
+                error={getFieldError('end_date')}
+                placeholder="Leave empty for permanent contract"
+              />
+            </div>
           </form>
         </Modal>
 

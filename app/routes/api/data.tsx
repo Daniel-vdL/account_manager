@@ -15,7 +15,9 @@ import {
   getUserRoles,
   getRecentActivity,
   getSecurityAlerts,
-  logLoginEvent
+  logLoginEvent,
+  checkAndDeactivateExpiredContracts,
+  activatePendingUsers
 } from "../../lib/queries";
 import bcrypt from 'bcryptjs';
 
@@ -27,6 +29,8 @@ export async function loader({ request }: { request: Request }) {
   try {
     switch (endpoint) {
       case "users":
+        await activatePendingUsers();
+        
         if (id) {
           const user = await getUserById(parseInt(id));
           return Response.json({ user });
@@ -39,6 +43,7 @@ export async function loader({ request }: { request: Request }) {
         return Response.json({ departments });
       
       case "dashboard-stats":
+        await activatePendingUsers();
         const stats = await getDashboardStats();
         return Response.json({ stats });
       
@@ -92,6 +97,9 @@ export async function action({ request }: { request: Request }) {
       case "auth":
         return await handleAuthActions(method, body, request);
       
+      case "contracts":
+        return await handleContractActions(method, body, request);
+      
       default:
         return Response.json({ error: "Invalid endpoint" }, { status: 400 });
     }
@@ -112,7 +120,7 @@ async function handleUserActions(method: string, body: any, request: Request) {
   });
   switch (method) {
     case "POST":
-      const { employeeNumber, name, email, password, departmentId, status } = body;
+      const { employeeNumber, name, email, password, departmentId, status, startDate, endDate, contractType } = body;
       
       if (!employeeNumber || !name || !email || !password) {
         return Response.json({ 
@@ -136,7 +144,10 @@ async function handleUserActions(method: string, body: any, request: Request) {
         email,
         passwordHash,
         departmentId: departmentId || null,
-        status: status || 'pending'
+        status: status || 'pending',
+        startDate,
+        endDate,
+        contractType: contractType || 'full_time'
       }, getAuditData());
 
       return Response.json({ 
@@ -350,6 +361,47 @@ async function handleAuthActions(method: string, body: any, request: Request) {
         }
       });
 
+    default:
+      return Response.json({ error: "Method not allowed" }, { status: 405 });
+  }
+}
+
+async function handleContractActions(method: string, body: any, request: Request) {
+  switch (method) {
+    case "POST":
+      const { action } = body;
+      
+      if (action === 'check_expired_contracts') {
+        const result = await checkAndDeactivateExpiredContracts();
+        return Response.json({
+          message: `Contract expiration check completed. ${result.deactivatedCount} users deactivated.`,
+          ...result
+        });
+      }
+      
+      if (action === 'activate_pending_users') {
+        const result = await activatePendingUsers();
+        return Response.json({
+          message: `Pending user activation check completed. ${result.activatedCount} users activated.`,
+          ...result
+        });
+      }
+      
+      if (action === 'run_all_checks') {
+        const [expiredResult, pendingResult] = await Promise.all([
+          checkAndDeactivateExpiredContracts(),
+          activatePendingUsers()
+        ]);
+        
+        return Response.json({
+          message: `All contract checks completed. ${expiredResult.deactivatedCount} users deactivated, ${pendingResult.activatedCount} users activated.`,
+          expired: expiredResult,
+          activated: pendingResult
+        });
+      }
+      
+      return Response.json({ error: "Invalid action" }, { status: 400 });
+      
     default:
       return Response.json({ error: "Method not allowed" }, { status: 405 });
   }

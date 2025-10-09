@@ -33,6 +33,9 @@ export async function createUser(userData: {
   password: string;
   departmentId?: number;
   status?: string;
+  startDate?: string;
+  endDate?: string;
+  contractType?: string;
 }) {
   try {
     const response = await fetch('/api/data?endpoint=users', {
@@ -135,6 +138,16 @@ export async function permanentDeleteUser(userId: number) {
 
 export async function deleteUser(userId: number) {
   return deactivateUser(userId);
+}
+
+export async function reactivateUser(userId: number) {
+  try {
+    const response = await updateUser(userId, { status: 'active' });
+    return response;
+  } catch (error) {
+    console.error('Error reactivating user:', error);
+    throw error;
+  }
 }
 
 export async function fetchDepartments() {

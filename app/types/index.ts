@@ -15,6 +15,12 @@ export interface User {
   created_at: string;
   updated_at: string;
   roles?: UserRole[];
+  employment?: {
+    id?: number;
+    start_date?: string;
+    end_date?: string;
+    contract_type?: ContractType;
+  };
 }
 
 export interface Employment {
@@ -123,6 +129,7 @@ export interface CreateUserForm {
   department_id: number;
   contract_type: ContractType;
   start_date: string;
+  end_date: string;
   role_ids: number[];
 }
 

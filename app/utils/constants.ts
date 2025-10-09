@@ -136,8 +136,9 @@ export const USER_TABLE_COLUMNS = [
   { key: 'email', label: 'Email', sortable: true },
   { key: 'department.name', label: 'Department', sortable: true },
   { key: 'status', label: 'Status', sortable: true, width: '100px' },
+  { key: 'employment_dates', label: 'Start/End Date', sortable: true, width: '140px' },
   { key: 'created_at', label: 'Created', sortable: true, width: '120px' },
-  { key: 'actions', label: 'Actions', sortable: false, width: '150px' }
+  { key: 'actions', label: 'Actions', sortable: false, width: '180px' }
 ];
 
 export const DEPARTMENT_TABLE_COLUMNS = [

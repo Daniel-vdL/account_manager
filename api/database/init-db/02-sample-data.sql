@@ -118,14 +118,17 @@ INSERT INTO users (employee_number, name, email, password_hash, status, departme
 -- Regular Employees
 ('EMP001', 'Lisa Thompson', 'lisa.thompson@company.com', '$2b$12$SKjtqSqYMadGS7QFsbQ0PuHzr/zczb5GDW.49TgbDZMhuBeu54eqy', 'active', 5),
 ('EMP002', 'Robert Davis', 'robert.davis@company.com', '$2b$12$qxr9DC/K8TCj82rlVz00/eJWZFBgO2F7lFdzO54TMOypEBUU1WFAC', 'active', 6),
-('EMP003', 'Jennifer Garcia', 'jennifer.garcia@company.com', '$2b$12$SKjtqSqYMadGS7QFsbQ0PuHzr/zczb5GDW.49TgbDZMhuBeu54eqy', 'pending', 7),
+('EMP003', 'Jennifer Garcia', 'jennifer.garcia@company.com', '$2b$12$SKjtqSqYMadGS7QFsbQ0PuHzr/zczb5GDW.49TgbDZMhuBeu54eqy', 'active', 7),
 ('EMP004', 'Thomas Martinez', 'thomas.martinez@company.com', '$2b$12$qxr9DC/K8TCj82rlVz00/eJWZFBgO2F7lFdzO54TMOypEBUU1WFAC', 'inactive', 1),
 
 -- Auditor
 ('AUD001', 'Patricia Lee', 'patricia.lee@company.com', '$2b$12$4q3Dmj15FULq.7.8g1.WbeS8hmr5KJ.z3wvwGfQCxv78zW2xIcVTS', 'active', 6),
 
 -- IT Support
-('IT002', 'Mark Williams', 'mark.williams@company.com', '$2b$12$wRV8HZCu4mo8/jV34m/NkuO/V8Ww2GZC9fkTcan36ea/UDNpdPXT2', 'active', 1);
+('IT002', 'Mark Williams', 'mark.williams@company.com', '$2b$12$wRV8HZCu4mo8/jV34m/NkuO/V8Ww2GZC9fkTcan36ea/UDNpdPXT2', 'active', 1),
+
+-- New Pending Employee (starting in future)
+('EMP005', 'Sarah Kim', 'sarah.kim@company.com', '$2b$12$SKjtqSqYMadGS7QFsbQ0PuHzr/zczb5GDW.49TgbDZMhuBeu54eqy', 'pending', 2);
 
 -- 6. EMPLOYMENT RECORDS
 INSERT INTO employment (user_id, start_date, contract_type) VALUES
@@ -136,10 +139,11 @@ INSERT INTO employment (user_id, start_date, contract_type) VALUES
 (5, '2022-05-15', 'full_time'),    -- James Wilson (Marketing Manager)
 (6, '2023-01-10', 'full_time'),    -- Lisa Thompson (Employee)
 (7, '2023-02-01', 'part_time'),    -- Robert Davis (Employee)
-(8, '2024-10-01', 'full_time'),    -- Jennifer Garcia (Pending Employee)
+(8, '2024-10-01', 'full_time'),    -- Jennifer Garcia (Started Employee)
 (9, '2023-06-01', 'contract'),     -- Thomas Martinez (Inactive)
 (10, '2022-08-15', 'full_time'),   -- Patricia Lee (Auditor)
-(11, '2023-03-15', 'full_time');   -- Mark Williams (IT Support)
+(11, '2023-03-15', 'full_time'),   -- Mark Williams (IT Support)
+(12, '2025-12-01', 'full_time');  -- Sarah Kim (Pending Employee - Future Start)
 
 -- 7. USER ROLE ASSIGNMENTS
 INSERT INTO user_roles (user_id, role_id, valid_from, granted_by) VALUES
@@ -150,10 +154,11 @@ INSERT INTO user_roles (user_id, role_id, valid_from, granted_by) VALUES
 (5, 3, '2022-05-15', 1),  -- James Wilson -> Department Manager
 (6, 4, '2023-01-10', 2),  -- Lisa Thompson -> Employee
 (7, 4, '2023-02-01', 2),  -- Robert Davis -> Employee
-(8, 4, '2024-10-01', 2),  -- Jennifer Garcia -> Employee (pending)
+(8, 4, '2024-10-01', 2),  -- Jennifer Garcia -> Employee (active)
 (9, 4, '2023-06-01', 2),  -- Thomas Martinez -> Employee (inactive)
 (10, 5, '2022-08-15', 1), -- Patricia Lee -> Auditor
-(11, 6, '2023-03-15', 1); -- Mark Williams -> IT Support
+(11, 6, '2023-03-15', 1), -- Mark Williams -> IT Support
+(12, 4, '2025-12-01', 2); -- Sarah Kim -> Employee (pending)
 
 -- =============================================================================
 -- NOTE: LOGIN_EVENTS and AUDIT_LOG tables are intentionally left empty
