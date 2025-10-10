@@ -19,8 +19,8 @@ export function Layout({ children, title }: LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b border-gray-200">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
+      <header className="bg-white shadow-sm border-b border-gray-200 flex-shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
@@ -49,8 +49,8 @@ export function Layout({ children, title }: LayoutProps) {
         </div>
       </header>
 
-      <div className="flex">
-        <nav className="w-64 bg-white shadow-sm h-[calc(100vh-4rem)] overflow-y-auto">
+      <div className="flex flex-1 min-h-0">
+        <nav className="w-64 bg-white shadow-sm flex-shrink-0 overflow-y-auto">
           <div className="p-4">
             <ul className="space-y-2">
               {NAVIGATION_ITEMS.map((item) => {
@@ -80,13 +80,17 @@ export function Layout({ children, title }: LayoutProps) {
           </div>
         </nav>
 
-        <main className="flex-1 p-8">
-          {title && (
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+        <main className="flex-1 min-w-0 flex flex-col">
+          <div className="flex-1 p-8 overflow-y-auto">
+            {title && (
+              <div className="mb-8 flex-shrink-0">
+                <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+              </div>
+            )}
+            <div className="flex-1">
+              {children}
             </div>
-          )}
-          {children}
+          </div>
         </main>
       </div>
     </div>

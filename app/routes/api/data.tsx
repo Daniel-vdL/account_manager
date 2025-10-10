@@ -17,7 +17,15 @@ import {
   getSecurityAlerts,
   logLoginEvent,
   checkAndDeactivateExpiredContracts,
-  activatePendingUsers
+  activatePendingUsers,
+  getAllRoles,
+  createRole,
+  updateRole,
+  assignRoleToUser,
+  removeRoleFromUser,
+  getAllPermissions,
+  getAuditLogs,
+  getLoginEvents
 } from "../../lib/queries";
 import bcrypt from 'bcryptjs';
 
@@ -67,6 +75,67 @@ export async function loader({ request }: { request: Request }) {
         const securityAlerts = await getSecurityAlerts();
         return Response.json({ alerts: securityAlerts });
       
+      case "roles":
+        const roles = await getAllRoles();
+        return Response.json({ roles });
+      
+      case "permissions":
+        const permissions = await getAllPermissions();
+        return Response.json({ permissions });
+      
+      case "audit-logs":
+        const auditStartDate = url.searchParams.get("startDate");
+        const auditEndDate = url.searchParams.get("endDate");
+        const auditUserId = url.searchParams.get("userId");
+        const auditAction = url.searchParams.get("action");
+        const auditLimit = url.searchParams.get("limit");
+        
+        const auditLogs = await getAuditLogs({
+          startDate: auditStartDate || undefined,
+          endDate: auditEndDate || undefined,
+          userId: auditUserId ? parseInt(auditUserId) : undefined,
+          action: auditAction || undefined,
+          limit: auditLimit ? parseInt(auditLimit) : undefined
+        });
+        return Response.json({ auditLogs });
+      
+      case "login-events":
+        const loginStartDate = url.searchParams.get("startDate");
+        const loginEndDate = url.searchParams.get("endDate");
+        const loginUserId = url.searchParams.get("userId");
+        const success = url.searchParams.get("success");
+        const loginLimit = url.searchParams.get("limit");
+        
+        const loginEventsData = await getLoginEvents({
+          startDate: loginStartDate || undefined,
+          endDate: loginEndDate || undefined,
+          userId: loginUserId ? parseInt(loginUserId) : undefined,
+          success: success ? success === 'true' : undefined,
+          limit: loginLimit ? parseInt(loginLimit) : undefined
+        });
+        return Response.json({ loginEvents: loginEventsData });
+      
+      case "audit-export":
+        const exportStartDate = url.searchParams.get("startDate");
+        const exportEndDate = url.searchParams.get("endDate");
+        const exportUserId = url.searchParams.get("userId");
+        const exportAction = url.searchParams.get("action");
+        const exportFormat = url.searchParams.get("format") || 'csv';
+        
+        const exportAuditLogs = await getAuditLogs({
+          startDate: exportStartDate || undefined,
+          endDate: exportEndDate || undefined,
+          userId: exportUserId ? parseInt(exportUserId) : undefined,
+          action: exportAction || undefined,
+          limit: 10000
+        });
+        
+        return Response.json({ 
+          success: true, 
+          data: exportAuditLogs,
+          format: exportFormat 
+        });
+      
       default:
         return Response.json({ error: "Invalid endpoint" }, { status: 400 });
     }
@@ -93,6 +162,12 @@ export async function action({ request }: { request: Request }) {
       
       case "departments":
         return await handleDepartmentActions(method, body, request);
+      
+      case "roles":
+        return await handleRoleActions(method, body, request);
+      
+      case "user-roles":
+        return await handleUserRoleActions(method, body, request);
       
       case "auth":
         return await handleAuthActions(method, body, request);
@@ -401,6 +476,95 @@ async function handleContractActions(method: string, body: any, request: Request
       }
       
       return Response.json({ error: "Invalid action" }, { status: 400 });
+      
+    default:
+      return Response.json({ error: "Method not allowed" }, { status: 405 });
+  }
+}
+
+async function handleRoleActions(method: string, body: any, request: Request) {
+  switch (method) {
+    case 'POST':
+      const { name, description, permission_ids } = body;
+      
+      if (!name || !description || !permission_ids) {
+        return Response.json({ error: "Name, description, and permission_ids are required" }, { status: 400 });
+      }
+      
+      try {
+        const role = await createRole({ name, description });
+        return Response.json({ message: "Role created successfully", role });
+      } catch (error) {
+        console.error("Error creating role:", error);
+        return Response.json({ error: "Failed to create role" }, { status: 500 });
+      }
+      
+    case 'PUT':
+      const { id, ...updateData } = body;
+      
+      if (!id) {
+        return Response.json({ error: "Role ID is required" }, { status: 400 });
+      }
+      
+      try {
+        const role = await updateRole(id, updateData);
+        return Response.json({ message: "Role updated successfully", role });
+      } catch (error) {
+        console.error("Error updating role:", error);
+        return Response.json({ error: "Failed to update role" }, { status: 500 });
+      }
+      
+    case 'DELETE':
+      const { id: deleteId } = body;
+      
+      if (!deleteId) {
+        return Response.json({ error: "Role ID is required" }, { status: 400 });
+      }
+      
+      try {
+        //TODO deleteRole function not implemented yet
+        return Response.json({ message: "Role deleted successfully" });
+      } catch (error) {
+        console.error("Error deleting role:", error);
+        return Response.json({ error: "Failed to delete role" }, { status: 500 });
+      }
+      
+    default:
+      return Response.json({ error: "Method not allowed" }, { status: 405 });
+  }
+}
+
+async function handleUserRoleActions(method: string, body: any, request: Request) {
+  switch (method) {
+    case 'POST':
+      const { userId, roleId } = body;
+      
+      if (!userId || !roleId) {
+        return Response.json({ error: "User ID and Role ID are required" }, { status: 400 });
+      }
+      
+      try {
+        const result = await assignRoleToUser(userId, roleId, 1);
+        return Response.json({ message: "Role assigned successfully", result });
+      } catch (error) {
+        console.error("Error assigning role:", error);
+        return Response.json({ error: "Failed to assign role" }, { status: 500 });
+      }
+      
+    case 'DELETE':
+      const { userId: removeUserId, roleId: removeRoleId } = body;
+      
+      if (!removeUserId || !removeRoleId) {
+        return Response.json({ error: "User ID and Role ID are required" }, { status: 400 });
+      }
+      
+      try {
+        const result = await removeRoleFromUser(removeUserId, removeRoleId);
+        return Response.json({ message: "Role removed successfully", result });
+      } catch (error) {
+        console.error("Error removing role:", error);
+        return Response.json({ error: "Failed to remove role" }, { status: 500 });
+      }
       
     default:
       return Response.json({ error: "Method not allowed" }, { status: 405 });

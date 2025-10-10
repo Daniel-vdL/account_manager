@@ -487,7 +487,7 @@ export default function UsersPage() {
   return (
     <ProtectedRoute>
       <Layout title="User Management">
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-full">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <Input
@@ -517,6 +517,7 @@ export default function UsersPage() {
               columns={columns}
               loading={loading}
               emptyMessage="No users found"
+              pageSize={15}
             />
           </CardContent>
         </Card>

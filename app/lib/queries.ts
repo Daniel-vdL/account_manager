@@ -1,5 +1,5 @@
-import { eq, desc, count, and, isNull, gte, gt, lte } from 'drizzle-orm';
-import { db, users, departments, userRoles, roles, loginEvents, auditLog, employment } from '../db';
+import { eq, desc, count, and, isNull, gte, gt, lte, ilike, sql } from 'drizzle-orm';
+import { db, users, departments, userRoles, roles, loginEvents, auditLog, employment, permissions, rolePermissions } from '../db';
 
 export async function getAllUsers() {
   const usersData = await db
@@ -556,7 +556,6 @@ export async function permanentDeleteUser(
     .where(eq(userRoles.userId, id));
 
   if (userRolesCount[0].count > 0) {
-    // Remove user roles first
     await db
       .delete(userRoles)
       .where(eq(userRoles.userId, id));
@@ -609,10 +608,39 @@ export async function deleteDepartment(id: number) {
 }
 
 export async function getAllRoles() {
-  return await db
+  const allRoles = await db
     .select()
     .from(roles)
     .orderBy(roles.name);
+  
+  const rolesWithDetails = await Promise.all(
+    allRoles.map(async (role) => {
+      const rolePermissionsList = await db
+        .select({
+          id: permissions.id,
+          name: permissions.name,
+          action: permissions.action,
+          description: permissions.description,
+        })
+        .from(permissions)
+        .innerJoin(rolePermissions, eq(permissions.id, rolePermissions.permissionId))
+        .where(eq(rolePermissions.roleId, role.id));
+
+      const userCount = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(userRoles)
+        .where(eq(userRoles.roleId, role.id));
+      
+      return {
+        ...role,
+        permissions: rolePermissionsList,
+        permission_count: rolePermissionsList.length,
+        user_count: userCount[0]?.count || 0
+      };
+    })
+  );
+  
+  return rolesWithDetails;
 }
 
 export async function createRole(roleData: {
@@ -682,10 +710,11 @@ export async function getUserRoles(userId: number) {
   return await db
     .select({
       id: userRoles.id,
-      roleId: userRoles.roleId,
-      validFrom: userRoles.validFrom,
-      validTo: userRoles.validTo,
-      grantedBy: userRoles.grantedBy,
+      user_id: userRoles.userId,
+      role_id: userRoles.roleId,
+      valid_from: userRoles.validFrom,
+      valid_to: userRoles.validTo,
+      granted_by: userRoles.grantedBy,
       role: {
         id: roles.id,
         name: roles.name,
@@ -906,4 +935,83 @@ export async function logLoginEvent(data: {
     .returning();
 
   return result[0];
+}
+
+export async function getAllPermissions() {
+  return await db
+    .select()
+    .from(permissions)
+    .orderBy(permissions.name);
+}
+
+export async function getAuditLogs(filters?: {
+  startDate?: string;
+  endDate?: string;
+  userId?: number;
+  action?: string;
+  limit?: number;
+}) {
+  const result = await db
+    .select({
+      id: auditLog.id,
+      action: auditLog.action,
+      status: auditLog.status,
+      details: auditLog.details,
+      created_at: auditLog.createdAt,
+      user_id: auditLog.userId,
+      target_user_id: auditLog.targetUserId,
+    })
+    .from(auditLog)
+    .orderBy(desc(auditLog.createdAt))
+    .limit(filters?.limit || 100);
+
+  const auditLogsWithUsers = await Promise.all(
+    result.map(async (log) => {
+      const user = log.user_id ? await getUserById(log.user_id) : null;
+      const targetUser = log.target_user_id ? await getUserById(log.target_user_id) : null;
+      
+      return {
+        ...log,
+        user: user ? { id: user.id, name: user.name, email: user.email } : null,
+        target_user: targetUser ? { id: targetUser.id, name: targetUser.name, email: targetUser.email } : null,
+      };
+    })
+  );
+
+  return auditLogsWithUsers;
+}
+
+export async function getLoginEvents(filters?: {
+  startDate?: string;
+  endDate?: string;
+  userId?: number;
+  success?: boolean;
+  limit?: number;
+}) {
+  const result = await db
+    .select({
+      id: loginEvents.id,
+      success: loginEvents.success,
+      ip: loginEvents.ipAddress,
+      user_agent: loginEvents.userAgent,
+      occurred_at: loginEvents.occurredAt,
+      failure_reason: loginEvents.failureReason,
+      user_id: loginEvents.userId,
+    })
+    .from(loginEvents)
+    .orderBy(desc(loginEvents.occurredAt))
+    .limit(filters?.limit || 100);
+
+  const loginEventsWithUsers = await Promise.all(
+    result.map(async (event) => {
+      const user = event.user_id ? await getUserById(event.user_id) : null;
+      
+      return {
+        ...event,
+        user: user ? { id: user.id, name: user.name, email: user.email } : null,
+      };
+    })
+  );
+
+  return loginEventsWithUsers;
 }

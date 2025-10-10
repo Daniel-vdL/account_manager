@@ -131,47 +131,228 @@ export const SECURITY_SETTINGS = {
 };
 
 export const USER_TABLE_COLUMNS = [
-  { key: 'employee_number', label: 'Employee #', sortable: true, width: '120px' },
-  { key: 'name', label: 'Name', sortable: true },
-  { key: 'email', label: 'Email', sortable: true },
-  { key: 'department.name', label: 'Department', sortable: true },
-  { key: 'status', label: 'Status', sortable: true, width: '100px' },
-  { key: 'employment_dates', label: 'Start/End Date', sortable: true, width: '140px' },
-  { key: 'created_at', label: 'Created', sortable: true, width: '120px' },
-  { key: 'actions', label: 'Actions', sortable: false, width: '180px' }
+  { 
+    key: 'employee_number', 
+    label: 'ID', 
+    sortable: true, 
+    responsiveWidth: '8%',
+    priority: 'medium' as const,
+    responsive: { hideOnMobile: true }
+  },
+  { 
+    key: 'name', 
+    label: 'Name', 
+    sortable: true, 
+    responsiveWidth: '20%',
+    priority: 'high' as const
+  },
+  { 
+    key: 'email', 
+    label: 'Email', 
+    sortable: true, 
+    responsiveWidth: '25%',
+    priority: 'high' as const,
+    responsive: { hideOnMobile: true }
+  },
+  { 
+    key: 'department.name', 
+    label: 'Department', 
+    sortable: true, 
+    responsiveWidth: '15%',
+    priority: 'medium' as const,
+    responsive: { hideOnMobile: true }
+  },
+  { 
+    key: 'status', 
+    label: 'Status', 
+    sortable: true, 
+    responsiveWidth: '12%',
+    priority: 'high' as const
+  },
+  { 
+    key: 'created_at', 
+    label: 'Created', 
+    sortable: true, 
+    responsiveWidth: '12%',
+    priority: 'low' as const,
+    responsive: { hideOnMobile: true, hideOnTablet: true }
+  },
+  { 
+    key: 'actions', 
+    label: 'Actions', 
+    sortable: false, 
+    responsiveWidth: '8%',
+    priority: 'high' as const
+  }
 ];
 
 export const DEPARTMENT_TABLE_COLUMNS = [
-  { key: 'code', label: 'Code', sortable: true, width: '100px' },
-  { key: 'name', label: 'Name', sortable: true },
-  { key: 'user_count', label: 'Users', sortable: true, width: '80px' },
-  { key: 'actions', label: 'Actions', sortable: false, width: '120px' }
+  { 
+    key: 'code', 
+    label: 'Code', 
+    sortable: true, 
+    responsiveWidth: '20%',
+    priority: 'high' as const
+  },
+  { 
+    key: 'name', 
+    label: 'Name', 
+    sortable: true, 
+    responsiveWidth: '50%',
+    priority: 'high' as const
+  },
+  { 
+    key: 'user_count', 
+    label: 'Users', 
+    sortable: true, 
+    responsiveWidth: '15%',
+    priority: 'medium' as const,
+    responsive: { hideOnMobile: true }
+  },
+  { 
+    key: 'actions', 
+    label: 'Actions', 
+    sortable: false, 
+    responsiveWidth: '15%',
+    priority: 'high' as const
+  }
 ];
 
 export const ROLE_TABLE_COLUMNS = [
-  { key: 'name', label: 'Role Name', sortable: true },
-  { key: 'description', label: 'Description', sortable: false },
-  { key: 'permission_count', label: 'Permissions', sortable: true, width: '120px' },
-  { key: 'user_count', label: 'Users', sortable: true, width: '80px' },
-  { key: 'actions', label: 'Actions', sortable: false, width: '120px' }
+  { 
+    key: 'name', 
+    label: 'Role Name', 
+    sortable: true, 
+    responsiveWidth: '25%',
+    priority: 'high' as const
+  },
+  { 
+    key: 'description', 
+    label: 'Description', 
+    sortable: false, 
+    responsiveWidth: '40%',
+    priority: 'medium' as const,
+    responsive: { hideOnMobile: true }
+  },
+  { 
+    key: 'permission_count', 
+    label: 'Permissions', 
+    sortable: true, 
+    responsiveWidth: '15%',
+    priority: 'medium' as const
+  },
+  { 
+    key: 'user_count', 
+    label: 'Users', 
+    sortable: true, 
+    responsiveWidth: '10%',
+    priority: 'low' as const,
+    responsive: { hideOnMobile: true }
+  },
+  { 
+    key: 'actions', 
+    label: 'Actions', 
+    sortable: false, 
+    responsiveWidth: '10%',
+    priority: 'high' as const
+  }
 ];
 
 export const AUDIT_TABLE_COLUMNS = [
-  { key: 'created_at', label: 'Date/Time', sortable: true, width: '150px' },
-  { key: 'user.name', label: 'User', sortable: true },
-  { key: 'action', label: 'Action', sortable: true, width: '150px' },
-  { key: 'target_user.name', label: 'Target', sortable: false },
-  { key: 'status', label: 'Status', sortable: true, width: '100px' },
-  { key: 'details', label: 'Details', sortable: false }
+  { 
+    key: 'created_at', 
+    label: 'Date/Time', 
+    sortable: true, 
+    responsiveWidth: '15%',
+    priority: 'high' as const,
+    responsive: { hideOnMobile: true }
+  },
+  { 
+    key: 'user.name', 
+    label: 'User', 
+    sortable: true, 
+    responsiveWidth: '15%',
+    priority: 'high' as const
+  },
+  { 
+    key: 'action', 
+    label: 'Action', 
+    sortable: true, 
+    responsiveWidth: '20%',
+    priority: 'high' as const
+  },
+  { 
+    key: 'target_user.name', 
+    label: 'Target', 
+    sortable: false, 
+    responsiveWidth: '15%',
+    priority: 'medium' as const,
+    responsive: { hideOnMobile: true }
+  },
+  { 
+    key: 'status', 
+    label: 'Status', 
+    sortable: true, 
+    responsiveWidth: '10%',
+    priority: 'high' as const
+  },
+  { 
+    key: 'details', 
+    label: 'Details', 
+    sortable: false, 
+    responsiveWidth: '25%',
+    priority: 'low' as const,
+    responsive: { hideOnMobile: true, hideOnTablet: true }
+  }
 ];
 
 export const LOGIN_EVENTS_TABLE_COLUMNS = [
-  { key: 'occurred_at', label: 'Date/Time', sortable: true, width: '150px' },
-  { key: 'user.name', label: 'User', sortable: true },
-  { key: 'user.email', label: 'Email', sortable: true },
-  { key: 'success', label: 'Success', sortable: true, width: '80px' },
-  { key: 'ip', label: 'IP Address', sortable: false, width: '120px' },
-  { key: 'user_agent', label: 'User Agent', sortable: false }
+  { 
+    key: 'occurred_at', 
+    label: 'Date/Time', 
+    sortable: true, 
+    responsiveWidth: '15%',
+    priority: 'high' as const,
+    responsive: { hideOnMobile: true }
+  },
+  { 
+    key: 'user.name', 
+    label: 'User', 
+    sortable: true, 
+    responsiveWidth: '20%',
+    priority: 'high' as const
+  },
+  { 
+    key: 'user.email', 
+    label: 'Email', 
+    sortable: true, 
+    responsiveWidth: '25%',
+    priority: 'medium' as const,
+    responsive: { hideOnMobile: true }
+  },
+  { 
+    key: 'success', 
+    label: 'Success', 
+    sortable: true, 
+    responsiveWidth: '10%',
+    priority: 'high' as const
+  },
+  { 
+    key: 'ip', 
+    label: 'IP Address', 
+    sortable: false, 
+    responsiveWidth: '15%',
+    priority: 'medium' as const,
+    responsive: { hideOnMobile: true }
+  },
+  { 
+    key: 'user_agent', 
+    label: 'User Agent', 
+    sortable: false, 
+    responsiveWidth: '15%',
+    priority: 'low' as const,
+    responsive: { hideOnMobile: true, hideOnTablet: true }
+  }
 ];
 
 export const ERROR_MESSAGES = {

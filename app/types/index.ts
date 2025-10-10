@@ -49,6 +49,7 @@ export interface Permission {
   id: number;
   name: string;
   action: string;
+  description?: string;
 }
 
 export interface RolePermission {
@@ -230,6 +231,12 @@ export interface DataTableColumn<T> {
   sortable?: boolean;
   render?: (value: any, row: T) => React.ReactNode;
   width?: string;
+  responsiveWidth?: string;
+  responsive?: {
+    hideOnMobile?: boolean;
+    hideOnTablet?: boolean;
+  };
+  priority?: 'high' | 'medium' | 'low';
 }
 
 export interface ModalProps {
