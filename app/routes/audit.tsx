@@ -289,7 +289,6 @@ export default function AuditPage() {
                 columns={auditColumns}
                 loading={loading}
                 emptyMessage={`No ${activeTab === 'all' ? 'audit events' : activeTab + ' events'} found`}
-                pageSize={20}
               />
             </CardContent>
           </Card>
