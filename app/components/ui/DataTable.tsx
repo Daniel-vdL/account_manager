@@ -50,6 +50,14 @@ export function DataTable<T extends Record<string, any>>({
     pageSize
   });
 
+  React.useEffect(() => {
+    setPaginationState(prev => ({
+      ...prev,
+      pageSize,
+      currentPage: 1
+    }));
+  }, [pageSize]);
+
   const handleSort = (columnKey: string) => {
     if (!sortable) return;
     

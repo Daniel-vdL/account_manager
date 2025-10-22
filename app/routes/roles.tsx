@@ -322,7 +322,6 @@ export default function RolesPage() {
             )}
           </div>
 
-          {/* Tab Navigation */}
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8" aria-label="Tabs">
               <button
@@ -348,7 +347,6 @@ export default function RolesPage() {
             </nav>
           </div>
 
-          {/* Roles Tab Content */}
           {activeTab === 'roles' && (
             <Card className="w-full">
               <CardContent className="p-6">
@@ -372,7 +370,6 @@ export default function RolesPage() {
             </Card>
           )}
 
-          {/* Permissions Tab Content */}
           {activeTab === 'permissions' && (
             <Card className="w-full">
               <CardContent className="p-6">
