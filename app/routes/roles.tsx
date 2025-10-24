@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/layout/Layout';
-import { DataTable, Button, Modal, Input, Card, CardContent, Select } from '../components/ui';
+import { DataTable, Button, Modal, Input, Card, CardContent } from '../components/ui';
 import { useAuth } from '../contexts/AuthContext';
 import { ROLE_TABLE_COLUMNS, SUCCESS_MESSAGES } from '../utils/constants';
 import { validateForm } from '../utils/helpers';
@@ -15,7 +15,7 @@ import {
   removeRoleFromUser
 } from '../lib/api';
 import { ProtectedRoute } from '../components/ProtectedRoute';
-import type { Role, Permission, User, ValidationError } from '../types';
+import type { Role, Permission, User, ValidationError, Action } from '../types';
 
 interface CreateRoleForm {
   name: string;
@@ -102,38 +102,6 @@ export default function RolesPage() {
           return row.permission_count ?? 0;
         case 'user_count':
           return row.user_count ?? 0;
-        case 'actions':
-          return (
-            <div className="flex space-x-2">
-              {hasPermission('role:update') && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleEdit(row)}
-                >
-                  Edit
-                </Button>
-              )}
-              {hasPermission('role:assign') && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleAssignUsers(row)}
-                >
-                  Assign
-                </Button>
-              )}
-              {hasPermission('role:delete') && (
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={() => handleDelete(row)}
-                >
-                  Delete
-                </Button>
-              )}
-            </div>
-          );
         default:
           return value;
       }
@@ -294,6 +262,12 @@ export default function RolesPage() {
     return formErrors.find(error => error.field === fieldName)?.message;
   };
 
+  const roleActions: Action<RoleWithCounts>[] = [
+    ...(hasPermission('role:update') ? [{ label: 'Edit', onClick: handleEdit }] : []),
+    ...(hasPermission('role:assign') ? [{ label: 'Assign Users', onClick: handleAssignUsers }] : []),
+    ...(hasPermission('role:delete') ? [{ label: 'Delete', onClick: handleDelete }] : []),
+  ];
+
   if (!hasPermission('role:read')) {
     return (
       <Layout>
@@ -364,7 +338,8 @@ export default function RolesPage() {
                   columns={columns}
                   loading={loading}
                   emptyMessage="No roles found"
-                  pageSize={15}
+                  actions={roleActions}
+                  onRowSelect={setSelectedRole}
                 />
               </CardContent>
             </Card>
@@ -421,7 +396,6 @@ export default function RolesPage() {
                       responsive: { hideOnMobile: true, hideOnTablet: true }
                     }
                   ]}
-                  pageSize={15}
                   loading={loading}
                   emptyMessage="No permissions found"
                 />
@@ -576,7 +550,7 @@ export default function RolesPage() {
               <textarea
                 value={createForm.description}
                 onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border text-gray-700 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 rows={3}
                 placeholder="Enter role description"
               />

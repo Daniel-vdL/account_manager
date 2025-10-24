@@ -3,6 +3,12 @@ import { cn } from '../../lib/utils';
 import { Button } from './Button';
 import type { DataTableColumn } from '../../types';
 
+export interface Action<T> {
+  label: string;
+  onClick: (row: T) => void;
+  icon?: React.ReactNode;
+}
+
 export interface DataTableProps<T> {
   data: T[];
   columns: DataTableColumn<T>[];
@@ -13,8 +19,9 @@ export interface DataTableProps<T> {
   className?: string;
   pagination?: boolean;
   pageSize?: number;
-  showPageSizeOptions?: boolean;
   responsive?: boolean;
+  actions?: Action<T>[];
+  onRowSelect?: (row: T | null) => void;
 }
 
 interface SortState {
@@ -36,9 +43,10 @@ export function DataTable<T extends Record<string, any>>({
   sortable = true,
   className,
   pagination = true,
-  pageSize = 10,
-  showPageSizeOptions = true,
-  responsive = true
+  pageSize = 5,
+  responsive = true,
+  actions = [],
+  onRowSelect
 }: DataTableProps<T>) {
   const [sortState, setSortState] = useState<SortState>({
     key: null,
@@ -49,6 +57,8 @@ export function DataTable<T extends Record<string, any>>({
     currentPage: 1,
     pageSize
   });
+
+  const [selectedRow, setSelectedRow] = useState<T | null>(null);
 
   React.useEffect(() => {
     setPaginationState(prev => ({
@@ -76,6 +86,14 @@ export function DataTable<T extends Record<string, any>>({
 
     if (onSort) {
       onSort(columnKey, newDirection);
+    }
+  };
+
+  const handleRowSelect = (row: T) => {
+    const newSelectedRow = selectedRow?.id === row.id ? null : row;
+    setSelectedRow(newSelectedRow);
+    if (onRowSelect) {
+      onRowSelect(newSelectedRow);
     }
   };
 
@@ -121,13 +139,6 @@ export function DataTable<T extends Record<string, any>>({
       ...prev,
       currentPage: newPage
     }));
-  };
-
-  const handlePageSizeChange = (newPageSize: number) => {
-    setPaginationState({
-      currentPage: 1,
-      pageSize: newPageSize
-    });
   };
 
   const renderCell = (row: T, column: DataTableColumn<T>) => {
@@ -226,6 +237,14 @@ export function DataTable<T extends Record<string, any>>({
     
     return (
       <div key={index} className="border-b border-gray-200 p-4 bg-white hover:bg-gray-50">
+        <div className="flex items-center mb-2">
+          <input
+            type="checkbox"
+            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            checked={selectedRow?.id === row.id}
+            onChange={() => handleRowSelect(row)}
+          />
+        </div>
         <div className="space-y-2">
           {highPriorityColumns.map((column) => (
             <div key={column.key as string} className="flex justify-between items-center">
@@ -263,8 +282,25 @@ export function DataTable<T extends Record<string, any>>({
 
   return (
     <div className={cn('w-full', className)}>
+      {actions.length > 0 && selectedRow && (
+        <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-gray-900 font-medium">Actions:</span>
+            {actions.map((action, index) => (
+              <Button
+                key={index}
+                variant="outline"
+                size="sm"
+                onClick={() => action.onClick(selectedRow)}
+              >
+                {action.icon && <span className="mr-2">{action.icon}</span>}
+                {action.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="overflow-hidden bg-white border border-gray-200 rounded-lg">
-        {/* Desktop Table View */}
         <div className="hidden sm:block">
           <table className={cn(
             'w-full divide-y divide-gray-200',
@@ -272,6 +308,11 @@ export function DataTable<T extends Record<string, any>>({
           )}>
               <thead className="bg-gray-50">
                 <tr>
+                  {actions.length > 0 && (
+                    <th className="px-4 py-3 w-12">
+                      {/* Checkbox header */}
+                    </th>
+                  )}
                   {columns.map((column) => (
                     <th
                       key={column.key as string}
@@ -320,8 +361,21 @@ export function DataTable<T extends Record<string, any>>({
                   paginatedData.map((row, index) => (
                     <tr
                       key={index}
-                      className="hover:bg-gray-50 transition-colors"
+                      className={cn(
+                        "hover:bg-gray-50 transition-colors",
+                        selectedRow?.id === row.id && 'bg-blue-50'
+                      )}
                     >
+                      {actions.length > 0 && (
+                        <td className="px-4 py-4">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            checked={selectedRow?.id === row.id}
+                            onChange={() => handleRowSelect(row)}
+                          />
+                        </td>
+                      )}
                       {columns.map((column) => (
                         <td
                           key={column.key as string}
@@ -377,19 +431,6 @@ export function DataTable<T extends Record<string, any>>({
           <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
             <div className="flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
               <div className="flex items-center text-sm text-gray-700">
-                <span className="mr-2">Show</span>
-                {showPageSizeOptions && (
-                  <select
-                    value={paginationState.pageSize}
-                    onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                    className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                  </select>
-                )}
                 <span className="ml-2">
                   Showing {startItem} to {endItem} of {sortedData.length} entries
                 </span>

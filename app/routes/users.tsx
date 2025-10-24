@@ -6,7 +6,7 @@ import { USER_TABLE_COLUMNS, USER_STATUS_OPTIONS, CONTRACT_TYPE_OPTIONS, SUCCESS
 import { validateForm } from '../utils/helpers';
 import { fetchUsers, fetchDepartments, createUser, updateUser, deleteUser, deactivateUser, permanentDeleteUser, reactivateUser } from '../lib/api';
 import { ProtectedRoute } from '../components/ProtectedRoute';
-import type { User, Department, Role, CreateUserForm, UpdateUserForm, ValidationError } from '../types';
+import type { User, Department, Role, CreateUserForm, UpdateUserForm, ValidationError, Action } from '../types';
 
 const mockRoles: Role[] = [
   { id: 1, name: 'Administrator', description: 'System Administrator' },
@@ -28,10 +28,7 @@ export default function UsersPage() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeactivateModalOpen, setIsDeactivateModalOpen] = useState(false);
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
-  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
-  const [isBulkDeactivateModalOpen, setIsBulkDeactivateModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [selectedUsers, setSelectedUsers] = useState<Set<number>>(new Set());
   const [blockReason, setBlockReason] = useState('');
   
   const [createForm, setCreateForm] = useState<CreateUserForm>({
@@ -113,59 +110,10 @@ export default function UsersPage() {
     user.department?.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleSelectUser = (userId: number) => {
-    const newSelection = new Set(selectedUsers);
-    if (newSelection.has(userId)) {
-      newSelection.delete(userId);
-    } else {
-      newSelection.add(userId);
-    }
-    setSelectedUsers(newSelection);
-  };
-
-  const handleSelectAll = () => {
-    if (selectedUsers.size === filteredUsers.length) {
-      setSelectedUsers(new Set());
-    } else {
-      setSelectedUsers(new Set(filteredUsers.map(user => user.id)));
-    }
-  };
-
-  const clearSelection = () => {
-    setSelectedUsers(new Set());
-  };
-
-  const getSelectedUser = () => {
-    if (selectedUsers.size === 1) {
-      const userId = Array.from(selectedUsers)[0];
-      return users.find(user => user.id === userId) || null;
-    }
-    return null;
-  };
-
   const columns = USER_TABLE_COLUMNS.map(col => ({
     ...col,
-    ...(col.key === 'select' && {
-      headerRender: () => (
-        <input
-          type="checkbox"
-          checked={selectedUsers.size > 0 && selectedUsers.size === filteredUsers.length}
-          onChange={handleSelectAll}
-          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-        />
-      )
-    }),
     render: (value: any, row: User) => {
       switch (col.key) {
-        case 'select':
-          return (
-            <input
-              type="checkbox"
-              checked={selectedUsers.has(row.id)}
-              onChange={() => handleSelectUser(row.id)}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-            />
-          );
         case 'status':
           const statusOption = USER_STATUS_OPTIONS.find(opt => opt.value === value);
           return (
@@ -232,8 +180,7 @@ export default function UsersPage() {
     setIsCreateModalOpen(true);
   };
 
-  const handleEdit = () => {
-    const user = getSelectedUser();
+  const handleEdit = (user: User) => {
     if (!user) return;
     
     setSelectedUser(user);
@@ -247,32 +194,28 @@ export default function UsersPage() {
     setIsEditModalOpen(true);
   };
 
-  const handleDelete = () => {
-    const user = getSelectedUser();
+  const handleDelete = (user: User) => {
     if (!user) return;
     
     setSelectedUser(user);
     setIsDeleteModalOpen(true);
   };
 
-  const handleDeactivate = () => {
-    const user = getSelectedUser();
+  const handleDeactivate = (user: User) => {
     if (!user) return;
     
     setSelectedUser(user);
     setIsDeactivateModalOpen(true);
   };
 
-  const handlePermanentDelete = () => {
-    const user = getSelectedUser();
+  const handlePermanentDelete = (user: User) => {
     if (!user) return;
     
     setSelectedUser(user);
     setIsDeleteModalOpen(true);
   };
 
-  const handleReactivate = async () => {
-    const user = getSelectedUser();
+  const handleReactivate = async (user: User) => {
     if (!user) return;
     
     try {
@@ -284,7 +227,7 @@ export default function UsersPage() {
         u.id === user.id ? { ...u, status: 'active' as any } : u
       ));
       
-      clearSelection();
+      setSelectedUser(null);
       alert('User reactivated successfully');
     } catch (error) {
       console.error('Error reactivating user:', error);
@@ -294,8 +237,7 @@ export default function UsersPage() {
     }
   };
 
-  const handleBlock = () => {
-    const user = getSelectedUser();
+  const handleBlock = (user: User) => {
     if (!user) return;
     
     setSelectedUser(user);
@@ -329,8 +271,7 @@ export default function UsersPage() {
     }
   };
 
-  const handleUnblock = async () => {
-    const user = getSelectedUser();
+  const handleUnblock = async (user: User) => {
     if (!user) return;
     
     try {
@@ -342,7 +283,7 @@ export default function UsersPage() {
         u.id === user.id ? { ...u, status: 'active' as any } : u
       ));
       
-      clearSelection();
+      setSelectedUser(null);
       alert(SUCCESS_MESSAGES.USER_UNBLOCKED);
     } catch (error) {
       console.error('Error unblocking user:', error);
@@ -363,8 +304,6 @@ export default function UsersPage() {
 
     try {
       setSubmitLoading(true);
-      
-
       
       const userData = {
         employeeNumber: createForm.employee_number,
@@ -419,8 +358,6 @@ export default function UsersPage() {
 
     try {
       setSubmitLoading(true);
-      
-
       
       const updateData = {
         name: updateForm.name,
@@ -496,69 +433,17 @@ export default function UsersPage() {
     }
   };
 
-  const handleBulkDelete = () => {
-    if (selectedUsers.size === 0) return;
-    setIsBulkDeleteModalOpen(true);
-  };
-
-  const handleBulkDeactivate = () => {
-    if (selectedUsers.size === 0) return;
-    setIsBulkDeactivateModalOpen(true);
-  };
-
-  const handleBulkDeleteSubmit = async () => {
-    if (selectedUsers.size === 0) return;
-
-    try {
-      setSubmitLoading(true);
-      
-      const selectedUserIds = Array.from(selectedUsers);
-      const deletePromises = selectedUserIds.map(id => permanentDeleteUser(id));
-      
-      await Promise.all(deletePromises);
-      
-      setUsers(users.filter(u => !selectedUsers.has(u.id)));
-      
-      setIsBulkDeleteModalOpen(false);
-      clearSelection();
-      alert(`${selectedUsers.size} user(s) permanently deleted successfully`);
-    } catch (error) {
-      console.error('Error bulk deleting users:', error);
-      alert(`Failed to delete users: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setSubmitLoading(false);
-    }
-  };
-
-  const handleBulkDeactivateSubmit = async () => {
-    if (selectedUsers.size === 0) return;
-
-    try {
-      setSubmitLoading(true);
-      
-      const selectedUserIds = Array.from(selectedUsers);
-      const deactivatePromises = selectedUserIds.map(id => deactivateUser(id));
-      
-      await Promise.all(deactivatePromises);
-      
-      setUsers(users.map(u => 
-        selectedUsers.has(u.id) ? { ...u, status: 'inactive' as any } : u
-      ));
-      
-      setIsBulkDeactivateModalOpen(false);
-      clearSelection();
-      alert(`${selectedUsers.size} user(s) deactivated successfully`);
-    } catch (error) {
-      console.error('Error bulk deactivating users:', error);
-      alert(`Failed to deactivate users: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    } finally {
-      setSubmitLoading(false);
-    }
-  };
-
   const getFieldError = (fieldName: string): string | undefined => {
     return formErrors.find(error => error.field === fieldName)?.message;
   };
+
+  const userActions: Action<User>[] = [
+    ...(hasPermission('user:update') ? [{ label: 'Edit', onClick: handleEdit }] : []),
+    ...(hasPermission('user:block') ? (selectedUser?.status === 'blocked' ? [{ label: 'Unblock', onClick: handleUnblock }] : [{ label: 'Block', onClick: handleBlock }]) : []),
+    ...(hasPermission('user:delete') && selectedUser?.status !== 'inactive' ? [{ label: 'Deactivate', onClick: handleDeactivate }] : []),
+    ...(hasPermission('user:update') && selectedUser?.status === 'inactive' ? [{ label: 'Reactivate', onClick: handleReactivate }] : []),
+    ...(hasPermission('user:delete') ? [{ label: 'Delete', onClick: handlePermanentDelete }] : []),
+  ];
 
   return (
     <ProtectedRoute>
@@ -586,120 +471,6 @@ export default function UsersPage() {
           )}
         </div>
 
-        {selectedUsers.size > 0 && (
-          <Card className="mb-4">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-600">
-                    {selectedUsers.size} user{selectedUsers.size === 1 ? '' : 's'} selected
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearSelection}
-                  >
-                    Clear Selection
-                  </Button>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  {selectedUsers.size === 1 && (
-                    <>
-                      {hasPermission('user:update') && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleEdit}
-                        >
-                          Edit User
-                        </Button>
-                      )}
-                      
-                      {hasPermission('user:block') && getSelectedUser()?.status !== 'blocked' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleBlock}
-                        >
-                          Block User
-                        </Button>
-                      )}
-                      
-                      {hasPermission('user:block') && getSelectedUser()?.status === 'blocked' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleUnblock}
-                        >
-                          Unblock User
-                        </Button>
-                      )}
-                      
-                      {hasPermission('user:delete') && getSelectedUser()?.status !== 'inactive' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleDeactivate}
-                        >
-                          Deactivate
-                        </Button>
-                      )}
-                      
-                      {hasPermission('user:update') && getSelectedUser()?.status === 'inactive' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleReactivate}
-                        >
-                          Reactivate
-                        </Button>
-                      )}
-                      
-                      {hasPermission('user:delete') && (
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={handlePermanentDelete}
-                        >
-                          Delete
-                        </Button>
-                      )}
-                    </>
-                  )}
-                  
-                  {selectedUsers.size > 1 && (
-                    <>
-                      <span className="text-sm text-gray-600 mr-4">
-                        {selectedUsers.size} users selected
-                      </span>
-                      {hasPermission('users:delete') && (
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={handleBulkDelete}
-                        >
-                          Delete Selected ({selectedUsers.size})
-                        </Button>
-                      )}
-                      {hasPermission('users:update') && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={handleBulkDeactivate}
-                          className="ml-2"
-                        >
-                          Deactivate Selected ({selectedUsers.size})
-                        </Button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         <Card>
           <CardContent className="p-0">
             <DataTable
@@ -708,6 +479,8 @@ export default function UsersPage() {
               loading={loading}
               emptyMessage="No users found"
               pageSize={5}
+              actions={userActions}
+              onRowSelect={setSelectedUser}
             />
           </CardContent>
         </Card>
@@ -965,102 +738,6 @@ export default function UsersPage() {
                 rows={3}
                 required
               />
-            </div>
-          </div>
-        </Modal>
-
-        <Modal
-          isOpen={isBulkDeleteModalOpen}
-          onClose={() => setIsBulkDeleteModalOpen(false)}
-          title="Delete Multiple Users"
-          footer={
-            <>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsBulkDeleteModalOpen(false)}
-                disabled={submitLoading}
-              >
-                Cancel
-              </Button>
-              <Button 
-                variant="danger"
-                onClick={handleBulkDeleteSubmit}
-                loading={submitLoading}
-              >
-                Delete {selectedUsers.size} User{selectedUsers.size !== 1 ? 's' : ''}
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <p className="text-gray-700">
-              Are you sure you want to <strong>permanently delete</strong> the following {selectedUsers.size} user{selectedUsers.size !== 1 ? 's' : ''}?
-            </p>
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-h-48 overflow-y-auto">
-              <ul className="space-y-2">
-                {Array.from(selectedUsers).map(userId => {
-                  const user = users.find(u => u.id === userId);
-                  return user ? (
-                    <li key={userId} className="text-sm text-red-800 flex items-center space-x-2">
-                      <span className="w-2 h-2 bg-red-400 rounded-full"></span>
-                      <span>{user.name} ({user.email})</span>
-                    </li>
-                  ) : null;
-                })}
-              </ul>
-            </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <p className="text-yellow-800 text-sm">
-                <strong>Warning:</strong> This action cannot be undone. All user data will be permanently removed from the system.
-              </p>
-            </div>
-          </div>
-        </Modal>
-
-        <Modal
-          isOpen={isBulkDeactivateModalOpen}
-          onClose={() => setIsBulkDeactivateModalOpen(false)}
-          title="Deactivate Multiple Users"
-          footer={
-            <>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsBulkDeactivateModalOpen(false)}
-                disabled={submitLoading}
-              >
-                Cancel
-              </Button>
-              <Button 
-                variant="secondary"
-                onClick={handleBulkDeactivateSubmit}
-                loading={submitLoading}
-              >
-                Deactivate {selectedUsers.size} User{selectedUsers.size !== 1 ? 's' : ''}
-              </Button>
-            </>
-          }
-        >
-          <div className="space-y-4">
-            <p className="text-gray-700">
-              Are you sure you want to deactivate the following {selectedUsers.size} user{selectedUsers.size !== 1 ? 's' : ''}?
-            </p>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 max-h-48 overflow-y-auto">
-              <ul className="space-y-2">
-                {Array.from(selectedUsers).map(userId => {
-                  const user = users.find(u => u.id === userId);
-                  return user ? (
-                    <li key={userId} className="text-sm text-yellow-800 flex items-center space-x-2">
-                      <span className="w-2 h-2 bg-yellow-400 rounded-full"></span>
-                      <span>{user.name} ({user.email})</span>
-                    </li>
-                  ) : null;
-                })}
-              </ul>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-blue-800 text-sm">
-                Deactivated users will lose access to the system but can be reactivated later. Their data will be preserved.
-              </p>
             </div>
           </div>
         </Modal>

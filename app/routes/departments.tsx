@@ -6,18 +6,20 @@ import { DEPARTMENT_TABLE_COLUMNS, SUCCESS_MESSAGES } from '../utils/constants';
 import { validateForm } from '../utils/helpers';
 import { fetchDepartments, fetchDepartmentUserCounts, createDepartment, updateDepartment, deleteDepartment } from '../lib/api';
 import { ProtectedRoute } from '../components/ProtectedRoute';
-import type { Department, DepartmentUserCount, CreateDepartmentForm, ValidationError } from '../types';
+import type { Department, DepartmentUserCount, CreateDepartmentForm, ValidationError, Action } from '../types';
+
+type DepartmentWithUserCount = Department & { user_count: number };
 
 export default function DepartmentsPage() {
   const { hasPermission } = useAuth();
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departments, setDepartments] = useState<DepartmentWithUserCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
+  const [selectedDepartment, setSelectedDepartment] = useState<DepartmentWithUserCount | null>(null);
 
   const [createForm, setCreateForm] = useState<CreateDepartmentForm>({
     name: '',
@@ -66,58 +68,49 @@ export default function DepartmentsPage() {
     dept.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const columns = DEPARTMENT_TABLE_COLUMNS.map(col => ({
-    ...col,
-    render: (value: any, row: Department) => {
-      switch (col.key) {
-        case 'user_count':
-          return row.user_count ?? 0;
-        case 'actions':
-          return (
-            <div className="flex space-x-2">
-              {hasPermission('department:update') && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleEdit(row)}
-                >
-                  Edit
-                </Button>
-              )}
-              {hasPermission('department:delete') && (
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={() => handleDelete(row)}
-                >
-                  Delete
-                </Button>
-              )}
-            </div>
-          );
-        default:
-          return value;
-      }
-    }
-  }));
-
   const handleCreate = () => {
     setCreateForm({ name: '', code: '' });
     setFormErrors([]);
     setIsCreateModalOpen(true);
   };
 
-  const handleEdit = (department: Department) => {
+  const handleEdit = (department: DepartmentWithUserCount) => {
     setSelectedDepartment(department);
     setCreateForm({ name: department.name, code: department.code });
     setFormErrors([]);
     setIsEditModalOpen(true);
   };
 
-  const handleDelete = (department: Department) => {
+  const handleDelete = (department: DepartmentWithUserCount) => {
     setSelectedDepartment(department);
     setIsDeleteModalOpen(true);
   };
+
+  const departmentActions: Action<DepartmentWithUserCount>[] = [];
+  if (hasPermission('department:update')) {
+    departmentActions.push({
+      label: 'Edit',
+      onClick: handleEdit,
+      icon: <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L17.5 3.5z" /></svg>,
+    });
+  }
+  if (hasPermission('department:delete')) {
+    departmentActions.push({
+      label: 'Delete',
+      onClick: handleDelete,
+      icon: <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
+    });
+  }
+
+  const columns = DEPARTMENT_TABLE_COLUMNS.map(col => ({
+    ...col,
+    render: (value: any, row: DepartmentWithUserCount) => {
+      if (col.key === 'user_count') {
+        return row.user_count ?? 0;
+      }
+      return value;
+    }
+  }));
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,7 +129,7 @@ export default function DepartmentsPage() {
         code: createForm.code.toUpperCase()
       };
       
-      const response = await createDepartment(departmentData);
+      await createDepartment(departmentData);
       
       await loadDepartmentsWithCounts();
       
@@ -254,6 +247,8 @@ export default function DepartmentsPage() {
               columns={columns}
               loading={loading}
               emptyMessage="No departments found"
+              actions={departmentActions}
+              onRowSelect={setSelectedDepartment}
             />
           </CardContent>
         </Card>

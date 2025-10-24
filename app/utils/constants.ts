@@ -176,13 +176,6 @@ export const USER_TABLE_COLUMNS = [
     responsiveWidth: '12%',
     priority: 'low' as const,
     responsive: { hideOnMobile: true, hideOnTablet: true }
-  },
-  { 
-    key: 'actions', 
-    label: 'Actions', 
-    sortable: false, 
-    responsiveWidth: '8%',
-    priority: 'high' as const
   }
 ];
 
@@ -208,13 +201,6 @@ export const DEPARTMENT_TABLE_COLUMNS = [
     responsiveWidth: '15%',
     priority: 'medium' as const,
     responsive: { hideOnMobile: true }
-  },
-  { 
-    key: 'actions', 
-    label: 'Actions', 
-    sortable: false, 
-    responsiveWidth: '15%',
-    priority: 'high' as const
   }
 ];
 
@@ -248,13 +234,6 @@ export const ROLE_TABLE_COLUMNS = [
     responsiveWidth: '10%',
     priority: 'low' as const,
     responsive: { hideOnMobile: true }
-  },
-  { 
-    key: 'actions', 
-    label: 'Actions', 
-    sortable: false, 
-    responsiveWidth: '10%',
-    priority: 'high' as const
   }
 ];
 

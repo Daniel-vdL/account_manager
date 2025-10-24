@@ -253,3 +253,9 @@ export interface FormFieldProps {
   required?: boolean;
   description?: string;
 }
+
+export interface Action<T> {
+  label: string;
+  onClick: (row: T) => void;
+  icon?: React.ReactNode;
+}
